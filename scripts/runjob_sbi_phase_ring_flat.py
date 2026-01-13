@@ -24,7 +24,7 @@ def runjobs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=int, default=0)
     parser.add_argument("--cluster_", help=" String", default='burg')
-    parser.add_argument('--num_samp', '-ns', help='number of samples',type=int, default=100000)
+    parser.add_argument('--num_samp', '-ns', help='number of samples',type=int, default=50000)
     parser.add_argument('--bayes_iter', '-bi', help='bayessian inference interation (0 = use prior, 1 = use first posterior)',type=int, default=0)
     parser.add_argument('--gb', '-g', help='number of gbs per cpu',type=int, default=2)
     
@@ -93,11 +93,11 @@ def runjobs():
     for outer_idx in range(outer_jobs):
         #--------------------------------------------------------------------------
         # Make SBTACH
-        inpath = currwd + "/sbi_phase_ring_lati.py"
+        inpath = currwd + "/sbi_phase_ring_flat.py"
         c1 = "{:s} -i $SLURM_ARRAY_TASK_ID -ns {:d} -bi {:d}".format(
             inpath,num_samp,bayes_iter)
         jobname="{:s}_bayes_iter={:d}_job_id={:d}".format(
-            'sbi_phase_ring_lati',bayes_iter,outer_idx)
+            'sbi_phase_ring_flat',bayes_iter,outer_idx)
 
         if not args2.test:
             jobnameDir=os.path.join(ofilesdir, jobname)
