@@ -7,6 +7,12 @@ import numpy as np
 import torch
 from scipy import integrate
 
+from mpmath import fp
+jtheta = np.vectorize(fp.jtheta, 'D')
+
+def wrapnormdens(x,S):
+    return np.real(jtheta(3,x/2,np.exp(-S**2/2)))/(2*np.pi)
+
 from sbi.utils import BoxUniform
 from sbi.utils.user_input_checks import process_prior
 
@@ -39,8 +45,8 @@ res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
 
 # create prior distribution
 if bayes_iter == 0:
-    full_prior = BoxUniform(low =torch.tensor([ 0.0,-0.5,-2.5,-2.0, 0.0],device=device),
-                            high=torch.tensor([ 1.0, 1.0,-0.5, 1.0, 0.2],device=device),)
+    full_prior = BoxUniform(low =torch.tensor([ 0.0,-0.5,-2.5,-2.0, 0.0, 0.0, np.pi/2],device=device),
+                            high=torch.tensor([ 1.0, 1.0,-0.5, 1.0, 0.2, 0.2, np.pi],device=device),)
 else:
     try:
         with open(f'./../notebooks/phase_ring_lat_posterior_{bayes_iter:d}.pkl','rb') as handle:
@@ -55,7 +61,7 @@ def elong_inp(kl2,gam,ori,phs):
     return 1 + np.cos(phs) * np.exp(-0.5*kl2*(1 + (1-gam**2)/gam**2*np.sin(ori)**2))
 
 def integrate_ring(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,ne,ni,threshe,threshi,nring,
-                   dt,Nt,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7):
+                   dt,Nt,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7,lat_exc=np.pi,lat_inh=np.pi/2):
     '''
     Integrate phase ring with AMPA, NMDA, and GABA receptor dynamics.
     xe0, xi0: initial excitatory and inhibitory activity
@@ -82,10 +88,28 @@ def integrate_ring(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,ne,ni,thres
     dps[dps > np.pi] = 2*np.pi - dps[dps > np.pi]
     
     if np.isscalar(Jee):
-        Wee = Jee * np.ones(1)
-        Wei = Jei * np.ones(1)
-        Wie = Jie * np.ones(1)
-        Wii = Jii * np.ones(1)
+        kerne = np.exp(-0.5*(dps/lat_exc)**2)
+        norm = np.sum(kerne,-1,keepdims=True)
+        kerne /= norm
+        kerni = np.exp(-0.5*(dps/lat_inh)**2)
+        norm = np.sum(kerni,-1,keepdims=True)
+        kerni /= norm
+        
+        if nring > 1:
+            Wee = Jee*kerne
+            Wie = Jie*np.ones((nring,nring))
+            Wei = Jei*np.ones((nring,nring))
+            Wii = Jii*kerni
+        else:
+            Wee = Jee*np.eye(nring)
+            Wei = Jei*np.ones((nring,nring))
+            Wie = Jie*np.ones((nring,nring))
+            Wii = Jii*np.eye(nring)
+        
+        Wee = Wee[:,:,None]
+        Wei = Wei[:,:,None]
+        Wie = Wie[:,:,None]
+        Wii = Wii[:,:,None]
         
         xea = xea[:,None]
         xen = xen[:,None]
@@ -96,10 +120,23 @@ def integrate_ring(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,ne,ni,thres
         
         nprm = 1
     else:
-        Wee = Jee
-        Wei = Jei
-        Wie = Jie
-        Wii = Jii
+        kerne = np.exp(-0.5*(dps[:,:,None]/lat_exc[None,None,:])**2)
+        norm = np.sum(kerne,1,keepdims=True)
+        kerne /= norm
+        kerni = np.exp(-0.5*(dps[:,:,None]/lat_inh[None,None,:])**2)
+        norm = np.sum(kerni,1,keepdims=True)
+        kerni /= norm
+        
+        if nring > 1:
+            Wee = Jee[None,None,:]*kerne
+            Wie = Jie[None,None,:]*np.ones((nring,nring))[:,:,None]
+            Wei = Jei[None,None,:]*np.ones((nring,nring))[:,:,None]
+            Wii = Jii[None,None,:]*kerni
+        else:
+            Wee = Jee[None,None,:]*np.eye(nring)[:,:,None]
+            Wei = Jei[None,None,:]*np.ones((nring,nring))[:,:,None]
+            Wie = Jie[None,None,:]*np.ones((nring,nring))[:,:,None]
+            Wii = Jii[None,None,:]*np.eye(nring)[:,:,None]
         
         xea = xea[:,None] * np.ones(len(Jee))[None,:]
         xen = xen[:,None] * np.ones(len(Jee))[None,:]
@@ -124,10 +161,10 @@ def integrate_ring(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,ne,ni,thres
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
         
-        net_ee = (Wee*ye.mean(0))[None,:] + ff_inp[:,None]
-        net_ei = (Wei*yi.mean(0))[None,:]
-        net_ie = (Wie*ye.mean(0))[None,:] + ff_inp[:,None]
-        net_ii = (Wii*yi.mean(0))[None,:]
+        net_ee = np.einsum('ijk,jk->ik',Wee,ye) + ff_inp[:,None]
+        net_ei = np.einsum('ijk,jk->ik',Wei,yi)
+        net_ie = np.einsum('ijk,jk->ik',Wie,ye) + ff_inp[:,None]
+        net_ii = np.einsum('ijk,jk->ik',Wii,yi)
         
         dx = np.zeros_like(x)
         dx[0*ncell:1*ncell,:] = ((1-frac_n)*net_ee - xea)/ta
@@ -198,14 +235,16 @@ def get_resps(theta, nring=8, gam=0.65):
     resps = np.zeros((theta.shape[0],2,nori,nring))
     for prm_idx in range(theta.shape[0]):
         print(prm_idx+1,'out of',theta.shape[0])
-        thresh = c * theta[prm_idx,4].item()
+        threshe = c * theta[prm_idx,4].item()
+        threshi = c * theta[prm_idx,5].item()
+        lat_width = theta[prm_idx,6].item()
         for ori_idx,ori in enumerate(oris):
             def ff_inp(t):
                 return c*elong_inp(2.0,gam,ori,phss+2*np.pi*3*t)
             _,resp = integrate_ring(np.zeros(nring),np.zeros(nring),np.zeros(nring),
                                 np.zeros(nring),np.zeros(nring),np.zeros(nring),
                                 ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),Jie[prm_idx].item(),Jii[prm_idx].item(),2,2,
-                                thresh,thresh,nring,0.25,4*50)
+                                threshe,threshi,nring,0.25,4*50,lat_exc=lat_width,lat_inh=lat_width)
             resps[prm_idx,:,ori_idx,:] = resp.T.reshape(2,nring)
         
     return resps
