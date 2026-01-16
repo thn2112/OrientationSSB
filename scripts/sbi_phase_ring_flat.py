@@ -97,13 +97,13 @@ def integrate_ring(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,ne,ni,thres
         
         if nring > 1:
             Wee = Jee*kerne
-            Wie = Jie*np.ones((nring,nring))
-            Wei = Jei*np.ones((nring,nring))
+            Wie = Jie*np.ones((nring,nring)) / nring
+            Wei = Jei*np.ones((nring,nring)) / nring
             Wii = Jii*kerni
         else:
             Wee = Jee*np.eye(nring)
-            Wei = Jei*np.ones((nring,nring))
-            Wie = Jie*np.ones((nring,nring))
+            Wei = Jei*np.ones((nring,nring)) / nring
+            Wie = Jie*np.ones((nring,nring)) / nring
             Wii = Jii*np.eye(nring)
         
         Wee = Wee[:,:,None]
@@ -129,13 +129,13 @@ def integrate_ring(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,ne,ni,thres
         
         if nring > 1:
             Wee = Jee[None,None,:]*kerne
-            Wie = Jie[None,None,:]*np.ones((nring,nring))[:,:,None]
-            Wei = Jei[None,None,:]*np.ones((nring,nring))[:,:,None]
+            Wie = Jie[None,None,:]*np.ones((nring,nring))[:,:,None] / nring
+            Wei = Jei[None,None,:]*np.ones((nring,nring))[:,:,None] / nring
             Wii = Jii[None,None,:]*kerni
         else:
             Wee = Jee[None,None,:]*np.eye(nring)[:,:,None]
-            Wei = Jei[None,None,:]*np.ones((nring,nring))[:,:,None]
-            Wie = Jie[None,None,:]*np.ones((nring,nring))[:,:,None]
+            Wei = Jei[None,None,:]*np.ones((nring,nring))[:,:,None] / nring
+            Wie = Jie[None,None,:]*np.ones((nring,nring))[:,:,None] / nring
             Wii = Jii[None,None,:]*np.eye(nring)[:,:,None]
         
         xea = xea[:,None] * np.ones(len(Jee))[None,:]
