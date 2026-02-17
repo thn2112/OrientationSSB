@@ -21,10 +21,13 @@ def ytitle(ax,text,xloc=-0.25,**kwargs):
     ax.text(xloc,0.5,text,horizontalalignment='right',verticalalignment='center',
         multialignment='center',rotation='vertical',transform=ax.transAxes,**kwargs)
     
-def add_cbar(fig,ax,plot,**kwargs):
+def add_cbar(fig,ax,plot,orientation='vertical',**kwargs):
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    return fig.colorbar(plot, cax=cax, orientation='vertical', **kwargs)
+    if orientation=='vertical':
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+    else:
+        cax = divider.append_axes('bottom', size='5%', pad=0.05)
+    return fig.colorbar(plot, cax=cax, orientation=orientation, **kwargs)
     
 def imshowticks(ax,xvals,yvals,xskip=1,yskip=1,xfmt=None,yfmt=None):
     if xfmt is None:
@@ -182,6 +185,8 @@ def violin(ax,data,colors=None,linestyles=None,show_points=False):
         colors = [f'C{idx%len(data)}' for idx in range(len(data))]
     if linestyles is None:
         linestyles = ['-' for idx in range(len(data))]
+    if np.isscalar(show_points):
+        show_points = [show_points]*len(data)
         
     rng = np.random.default_rng(0)
         
@@ -198,7 +203,7 @@ def violin(ax,data,colors=None,linestyles=None,show_points=False):
         quartile1[idx] = np.percentile(data[idx], 25)
         medians[idx] = np.percentile(data[idx], 50)
         quartile3[idx] = np.percentile(data[idx], 75)
-        if show_points:
+        if show_points[idx]:
             ax.scatter(rng.uniform(idx+1-0.15,idx+1+0.15,len(data[idx])),
                     data[idx], s=1, color=colors[idx], alpha=0.2)
 

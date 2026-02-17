@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import qmc
 
-def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,seed=0):
+def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,seed=0):
     rng = np.random.default_rng(seed)
 
     ks = np.arange(N)/N
@@ -9,11 +9,28 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,seed=0):
     kxs,kys = np.meshgrid(ks*N,ks*N)
     ks = np.sqrt(kxs**2 + kys**2)
     kpol = 1/(np.sqrt(sig2)*pol_scale)
-
-    polmap = (np.fft.ifft2(ks*np.exp(0.125-2*(ks - 0.75*kpol)**2/kpol**2)*\
-        np.fft.fft2(rng.binomial(n=1,p=0.5,size=(N,N))-0.5)) > 0).astype(int)
     
-    sctmap = rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2))
+    k_kern = ks*np.exp(0.125-2*(ks - 0.75*kpol)**2/kpol**2)
+
+    if EI_match:
+        polmap = (np.fft.ifft2(k_kern*\
+            np.fft.fft2(rng.binomial(n=1,p=0.5,size=(N,N))-0.5)) > 0).astype(int)
+    
+        sctmap = rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2))
+    else:
+        e_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
+        i_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
+        s_field = (e_field + i_field) / np.sqrt(2)
+        d_field = (e_field - i_field) / np.sqrt(2)
+        del e_field, i_field
+        polmap_s = (1+EI_pol_corr)*np.fft.ifft2(k_kern*np.fft.fft2(s_field)).real
+        polmap_d = (1-EI_pol_corr)*np.fft.ifft2(k_kern*np.fft.fft2(d_field)).real
+        polmap_e = (polmap_s + polmap_d) / np.sqrt(2)
+        polmap_i = (polmap_s - polmap_d) / np.sqrt(2)
+        polmap = ((polmap_e > 0).astype(int), (polmap_i > 0).astype(int))
+        
+        sctmap = (rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2)),
+                  rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2)))
     
     return sctmap,polmap
 

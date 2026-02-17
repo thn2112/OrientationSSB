@@ -164,9 +164,9 @@ def center_rescale_RF(A,B,pix_len,cent_idx,l_size=28,s_size=25,deg_res=0.5):
     n = int(np.round(s_size/deg_res))
     xs,ys = np.meshgrid((np.arange(n)+0.5)*deg_res - s_size/2,
                         (np.arange(n)+0.5)*deg_res - s_size/2)
-    in_rf = np.sqrt(xs**2 + ys**2) <= s_size/2
-    clean_A = (clean_A*in_rf).astype(int)
-    clean_B = (clean_B*in_rf).astype(int)
+    in_rf = (np.sqrt(xs**2 + ys**2) <= s_size/2).astype(int)
+    clean_A = clean_A*in_rf
+    clean_B = clean_B*in_rf
     
     return clean_A,clean_B
 
@@ -234,7 +234,7 @@ def ellipse_gauss_fit(field):
           props['centroid'][1])
     
     popt,pcov = curve_fit(ellipse_gauss_func, np.array([x.flatten(), y.flatten()]), field.flatten(),
-                          p0=p0, maxfev=100000)
+                          p0=p0, maxfev=1000000)
     
     popt[0] = np.abs(popt[0])
     popt[1] = np.abs(popt[1])
