@@ -313,8 +313,8 @@ def simulator(theta):
     theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
     theta[:,4] = lat_width
-    theta[:,5] = Je_narrow / Je_broad
-    theta[:,6] = Ji_narrow / Ji_broad
+    theta[:,5] = Je_broad / Je_narrow
+    theta[:,6] = Ji_broad / Ji_narrow
     
     returns: [os,mr]
     os = excitatory orientation selectivity
