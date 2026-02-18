@@ -372,8 +372,8 @@ x = sheet_simulator(theta)
 print(f'Simulating samples took',time.process_time() - start,'s\n')
 
 # save results
-# with open(res_file, 'wb') as handle:
-#     pickle.dump({
-#         'theta': theta,
-#         'x': x,
-#     }, handle)
+with open(res_file, 'wb') as handle:
+    pickle.dump({
+        'theta': theta,
+        'x': x,
+    }, handle)
