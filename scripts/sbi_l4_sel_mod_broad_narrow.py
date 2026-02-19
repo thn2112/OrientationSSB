@@ -49,7 +49,7 @@ if bayes_iter == 0:
                                      post_low =torch.tensor([0.0,-0.5,-2.5,-2.0, 0.01,0.1,0.1],device=device),
                                      post_high=torch.tensor([1.0, 1.0,-0.5, 1.0, 0.1 ,1.5,1.5],device=device),
                                      low =torch.tensor([0.1, 0.2, 2.0],device=device),
-                                     high=torch.tensor([1.0, 1.0, 4.0],device=device),)
+                                     high=torch.tensor([1.2, 1.0, 4.0],device=device),)
 
     full_prior,_,_ = process_prior(full_prior)
 else:
