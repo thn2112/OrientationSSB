@@ -361,19 +361,26 @@ def sheet_simulator(theta):
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
-start = time.process_time()
+thetas = torch.zeros((0,10))
+xs = torch.zeros((0,11))
 
-# sample from prior
-theta = full_prior.sample((num_samp,))
+while thetas.shape[0] < num_samp:
+    this_samps = min(5, num_samp - thetas.shape[0])
+    
+    start = time.process_time()
+    # sample from prior
+    theta = full_prior.sample((this_samps,))
+    # simulate sheet
+    x = sheet_simulator(theta)
 
-# simulate sheet
-x = sheet_simulator(theta)
+    thetas = torch.cat([thetas,theta],dim=0)
+    xs = torch.cat([xs,x],dim=0)
 
-print(f'Simulating samples took',time.process_time() - start,'s\n')
+    print(f'Simulating samples took',time.process_time() - start,'s\n')
 
-# save results
-with open(res_file, 'wb') as handle:
-    pickle.dump({
-        'theta': theta,
-        'x': x,
-    }, handle)
+    # save results
+    with open(res_file, 'wb') as handle:
+        pickle.dump({
+            'theta': thetas,
+            'x': xs,
+        }, handle)
