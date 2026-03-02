@@ -94,7 +94,7 @@ gam_map = gam_os_itp(np.abs(omap))
 sig2 = 0.00095
 
 rf_sct_scale = 0.8
-pol_scale = 2.4
+pol_scale = 2.0
 L_mm = N/11
 mag_fact = 0.02
 L_deg = L_mm / np.sqrt(mag_fact)
@@ -365,7 +365,7 @@ thetas = torch.zeros((0,10))
 xs = torch.zeros((0,11))
 
 while thetas.shape[0] < num_samp:
-    this_samps = min(5, num_samp - thetas.shape[0])
+    this_samps = min(3, num_samp - thetas.shape[0])
     
     start = time.process_time()
     # sample from prior

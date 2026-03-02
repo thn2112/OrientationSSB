@@ -72,8 +72,8 @@ if not os.path.exists(res_dir):
 if test:
     res_dir = res_dir + 'sim_2d_ssn_lgn_{:s}_rfs_ne={:d}_ni={:d}/'.format(mode,n_e,n_i)
 else:
-    res_dir = res_dir + 'sim_2d_ssn_lgn_{:s}_rfs_ng={:d}_ne={:d}_ni={:d}_sx={:.2f}_ss={:.2f}_gi={:.1f}_p={:d}_r={:d}_d={:.1f}/'.format(
-        mode,n_grid,n_e,n_i,s_x,s_s,gain_i,prune,rec_plast,rec_i_ltd)
+    res_dir = res_dir + 'sim_2d_ssn_lgn_{:s}_rfs_ng={:d}_ne={:d}_ni={:d}_sx={:.2f}_ss={:.2f}_gi={:.1f}_w={:.1f}_p={:d}_r={:d}_d={:.1f}/'.format(
+        mode,n_grid,n_e,n_i,s_x,s_s,gain_i,wff_sum,prune,rec_plast,rec_i_ltd)
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
