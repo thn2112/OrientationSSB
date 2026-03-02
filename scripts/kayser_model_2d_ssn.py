@@ -7,16 +7,14 @@ class Model:
         self,
         n_grid: int=20, # number of grid points per edge
         n_x: int=1, # number of LGN cells of each center type per grid point
-        n_e: int=1, # number of excitatory cells per grid point
-        n_i: int=1, # number of inhibitory cells per grid point
+        n_e: int=1, # expansion of excitatory cells per pixel
+        n_i: int=1, # expansion of inhibitory cells per pixel
         s_x: float=0.08, # feedforward arbor decay length
-        s_e: float=0.08, # excitatory recurrent arbor decay length
-        s_i: float=0.08, # inhibitory recurrent arbor decay length
         s_s: float=0.00, # retinotopic scatter decay length
         cut_lim: float=1.5, # arbor cutoff distance in terms of decay lengths
         flat_x: bool=True, # whether to use flat feedforward arbors
-        flat_e: bool=True, # whether to use flat excitatory recurrent arbors
-        flat_i: bool=True, # whether to use flat inhibitory recurrent arbors
+        flat_e: bool=False, # whether to use flat excitatory recurrent arbors
+        flat_i: bool=False, # whether to use flat inhibitory recurrent arbors
         flat_s: bool=False, # whether to sample ret scat from uniform distribution
         gain_i: float=1.0, # gain of inhibitory cells
         hebb_wei: bool=False, # whether to use Hebbian learning for wei
@@ -25,8 +23,7 @@ class Model:
         rec_e_plast: bool=True, # whether recurrent weights are plastic
         rec_i_plast: bool=True, # whether recurrent weights are plastic
         rec_i_ltd: float=1.0, # factor for LTD of inhibitory weights
-        thresh: float=None, # threshold for rate nonlinearity
-        wff_sum: float=0.3, # feedforward weight normalization
+        w_prm_dict: dict=None, # dictionary of initial weight parameters
         init_dict: dict=None,
         seed: int=None,
         rx_wave_start: np.ndarray=None,
@@ -40,37 +37,42 @@ class Model:
         
         # grid points and distances
         self.n_grid = n_grid
-        self.xs,self.ys = np.meshgrid(np.linspace(0.5/self.n_grid,1-0.5/self.n_grid,self.n_grid),
-                                      np.linspace(0.5/self.n_grid,1-0.5/self.n_grid,self.n_grid))
-        self.xs,self.ys = self.xs.flatten(),self.ys.flatten()
+        self.n_egrid = n_e * n_grid
+        self.txs,self.tys = np.meshgrid(np.linspace(0.5/self.n_grid,1-0.5/self.n_grid,self.n_grid),
+                                        np.linspace(0.5/self.n_grid,1-0.5/self.n_grid,self.n_grid))
+        self.txs,self.tys = self.txs.flatten(),self.tys.flatten()
+        
+        self.cxs,self.cys = np.meshgrid(np.linspace(0.5/self.n_egrid,1-0.5/self.n_egrid,self.n_egrid),
+                                        np.linspace(0.5/self.n_egrid,1-0.5/self.n_egrid,self.n_egrid))
+        self.cxs,self.cys = self.cxs.flatten(),self.cys.flatten()
         
         # retinotopic scatter
         if s_s < 1e-10:
-            self.ret_scat_xs = np.zeros_like(self.xs)
-            self.ret_scat_ys = np.zeros_like(self.ys)
+            self.ret_scat_cxs = np.zeros_like(self.cxs)
+            self.ret_scat_cys = np.zeros_like(self.cys)
         else:
             rng = np.random.default_rng(0)
-            thts = 2*np.pi*rng.uniform(0,1,size=self.xs.size)
+            thtes = 2*np.pi*rng.uniform(0,1,size=self.cxs.size)
             if flat_s:
-                rads = s_s*np.sqrt(rng.uniform(0,cut_lim,size=self.xs.size))
+                rades = s_s*np.sqrt(rng.uniform(0,cut_lim,size=self.cxs.size))
             else:
                 ray = stats.rayleigh()
-                rads = s_s*ray.ppf(rng.uniform(size=self.xs.size)*ray.cdf(cut_lim))
-            self.ret_scat_xs = rads*np.cos(thts)
-            self.ret_scat_ys = rads*np.sin(thts)
+                rades = s_s*ray.ppf(rng.uniform(size=self.cxs.size)*ray.cdf(cut_lim))
+            self.ret_scat_cxs = rades*np.cos(thtes)
+            self.ret_scat_cys = rades*np.sin(thtes)
         
-        self.dists = np.sqrt(np.fmin(np.abs(self.xs[:,None]-self.xs[None,:]),
-                                     1-np.abs(self.xs[:,None]-self.xs[None,:]))**2 +\
-                             np.fmin(np.abs(self.ys[:,None]-self.ys[None,:]),
-                                     1-np.abs(self.ys[:,None]-self.ys[None,:]))**2)
-        self.scat_dists = np.sqrt(np.fmin(np.abs((self.xs+self.ret_scat_xs)[:,None]-self.xs[None,:]),
-                                     1-np.abs((self.xs+self.ret_scat_xs)[:,None]-self.xs[None,:]))**2 +\
-                             np.fmin(np.abs((self.ys+self.ret_scat_ys)[:,None]-self.ys[None,:]),
-                                     1-np.abs((self.ys+self.ret_scat_ys)[:,None]-self.ys[None,:]))**2)
+        self.dists = np.sqrt(np.fmin(np.abs(self.cxs[:,None]-self.cxs[None,:]),
+                                   1-np.abs(self.cxs[:,None]-self.cxs[None,:]))**2 +\
+                             np.fmin(np.abs(self.cys[:,None]-self.cys[None,:]),
+                                   1-np.abs(self.cys[:,None]-self.cys[None,:]))**2)
+        self.scat_dists = np.sqrt(np.fmin(np.abs((self.cxs+self.ret_scat_cxs)[:,None]-self.txs[None,:]),
+                                        1-np.abs((self.cxs+self.ret_scat_cxs)[:,None]-self.txs[None,:]))**2 +\
+                                  np.fmin(np.abs((self.cys+self.ret_scat_cys)[:,None]-self.tys[None,:]),
+                                        1-np.abs((self.cys+self.ret_scat_cys)[:,None]-self.tys[None,:]))**2)
 
         # number of cells
-        self.n_e = n_e*n_grid**2
-        self.n_i = n_i*n_grid**2
+        self.n_e = self.n_egrid**2
+        self.n_i = self.n_e
         self.n_4 = self.n_e + self.n_i
         self.n_lgn = 2*n_x*n_grid**2
         
@@ -87,23 +89,29 @@ class Model:
         print(self.n_idx,self.a_idx,self.g_idx,self.en_idx,self.in_idx,self.ea_idx,self.ia_idx,self.ei_idx,self.ii_idx)
         
         # define arbors
+        broad_frac_e = w_prm_dict['broad_frac_e'] if w_prm_dict is not None else 1.0
+        broad_frac_i = w_prm_dict['broad_frac_i'] if w_prm_dict is not None else 1.0
+        s_n = w_prm_dict['s_n'] if w_prm_dict is not None else 0.08
+        s_b = w_prm_dict['s_b'] if w_prm_dict is not None else 0.2
         if flat_x:
-            self.ax = np.ones_like(self.dists)
+            self.ax = np.ones_like(self.scat_dists)
         else:
             self.ax = np.exp(-self.scat_dists**2/(2*s_x**2))
         self.ax = np.concatenate((self.ax,self.ax),axis=1)
         if flat_e:
-            self.ae = np.ones_like(self.dists)
+            self.ae = ((self.dists <= cut_lim*s_b).astype(int) + broad_frac_e) * np.ones_like(self.dists)
+            self.mask_e = (self.dists <= cut_lim*s_b).astype(int)
         else:
-            self.ae = np.exp(-self.dists**2/(2*s_e**2))
+            self.ae = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_e * np.exp(-self.dists**2/(2*s_b**2))
+            self.mask_e = (self.dists <= 2*cut_lim*s_b).astype(int)
         if flat_i:
-            self.ai = np.ones_like(self.dists)
+            self.ai = ((self.dists <= cut_lim*s_b).astype(int) + broad_frac_i) * np.ones_like(self.dists)
+            self.mask_i = (self.dists <= cut_lim*s_b).astype(int)
         else:
-            self.ai = np.exp(-self.dists**2/(2*s_i**2))
+            self.ai = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_i * np.exp(-self.dists**2/(2*s_b**2))
+            self.mask_i = (self.dists <= 2*cut_lim*s_b).astype(int)
         self.mask_x = (self.scat_dists <= cut_lim*s_x).astype(int)
         self.mask_x = np.concatenate((self.mask_x,self.mask_x),axis=1)
-        self.mask_e = (self.dists <= cut_lim*s_e).astype(int)
-        self.mask_i = (self.dists <= cut_lim*s_i).astype(int)
         np.place(self.ax,self.mask_x==0,0)
         np.place(self.ae,self.mask_e==0,0)
         np.place(self.ai,self.mask_i==0,0)
@@ -112,15 +120,14 @@ class Model:
         self.n_e_in_arb = np.sum(self.ae,axis=1)[0]
         self.n_i_in_arb = np.sum(self.ai,axis=1)[0]
         print(self.n_x_in_arb,self.n_e_in_arb,self.n_i_in_arb)
-        print(np.sum(self.mask_x,axis=1)[0],np.sum(self.mask_e,axis=1)[0],np.sum(self.mask_e,axis=1)[0])
+        print(np.sum(self.mask_x,axis=1)[0],np.sum(self.mask_e,axis=1)[0],np.sum(self.mask_i,axis=1)[0])
         
         # postsynaptic weight normalization
-        self.wff_sum = wff_sum#1.0
-        self.wee_sum = 0.05222626
-        self.wie_sum = 0.01108487
-        self.wei_sum = 0.07327422
-        self.wii_sum = 0.00822369
-
+        self.wff_sum = w_prm_dict['wff_sum'] if w_prm_dict is not None else 1.0
+        self.wee_sum = w_prm_dict['wee_sum'] if w_prm_dict is not None else 0.05222626
+        self.wie_sum = w_prm_dict['wie_sum'] if w_prm_dict is not None else 0.01108487
+        self.wei_sum = w_prm_dict['wei_sum'] if w_prm_dict is not None else 0.07327422
+        self.wii_sum = w_prm_dict['wii_sum'] if w_prm_dict is not None else 0.00822369
         # presynaptic weight normalization
         self.wlgn_sum = (self.n_e + self.n_i) * self.wff_sum / self.n_lgn
         self.w4e_sum = self.wee_sum + self.n_i/self.n_e * self.wie_sum
@@ -170,12 +177,12 @@ class Model:
             self.wii = rng.uniform(0.2,0.8,size=(self.n_i,self.n_i)) * self.ai
             
             # randomly choose some L4 cells to be more on/off dominated
-            on_dom = rng.choice([1,-1],size=(self.n_e,))
-            self.wex[:,:self.n_lgn//2] *= 1+0.3*on_dom[:,None]
-            self.wex[:,self.n_lgn//2:] *= 1-0.3*on_dom[:,None]
-            on_dom = rng.choice([1,-1],size=(self.n_i,))
-            self.wix[:,:self.n_lgn//2] *= 1+0.3*on_dom[:,None]
-            self.wix[:,self.n_lgn//2:] *= 1-0.3*on_dom[:,None]
+            # on_dom = rng.choice([1,-1],size=(self.n_e,))
+            # self.wex[:,:self.n_lgn//2] *= 1+0.3*on_dom[:,None]
+            # self.wex[:,self.n_lgn//2:] *= 1-0.3*on_dom[:,None]
+            # on_dom = rng.choice([1,-1],size=(self.n_i,))
+            # self.wix[:,:self.n_lgn//2] *= 1+0.3*on_dom[:,None]
+            # self.wix[:,self.n_lgn//2:] *= 1-0.3*on_dom[:,None]
             
             self.wex *= self.wff_sum / np.sum(self.wex,axis=1,keepdims=True)
             self.wix *= self.wff_sum / np.sum(self.wix,axis=1,keepdims=True)
@@ -208,13 +215,6 @@ class Model:
             if rx_wave_start is None:
                 rx_wave_start = np.ones(self.n_lgn)
             
-            if thresh is None:
-                he,hi = self.wex@rx_wave_start,self.wix@rx_wave_start
-                h = np.concatenate((he,hi))
-                self.thresh = 0.8*np.ones(self.n_e+self.n_i)*np.mean(h)
-            else:
-                self.thresh = np.ones(self.n_e+self.n_i)*thresh
-            
             # calculate average inputs and rates at the start of a geniculate wave
             self.update_inps(rx_wave_start,100*self.dt_dyn,0.1)
             
@@ -223,6 +223,7 @@ class Model:
             self.uie_avg = np.ones(self.n_i)*np.mean(self.uin + self.uia)
             self.uii_avg = np.ones(self.n_i)*np.mean(self.uii)
             self.rx_avg = np.ones(self.n_lgn)*np.mean(rx_wave_start)
+            self.thresh = np.concatenate((self.uee_avg - self.uei_avg,self.uie_avg - self.uii_avg))
             
             x_sum = np.sum(self.wex,axis=0,keepdims=True) + np.sum(self.wix,axis=0,keepdims=True)
             e_sum = np.sum(self.wee,axis=0,keepdims=True) + np.sum(self.wie,axis=0,keepdims=True)
