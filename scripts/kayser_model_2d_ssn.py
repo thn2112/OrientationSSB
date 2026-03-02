@@ -211,20 +211,22 @@ class Model:
             self.uin = np.zeros(self.n_i)
             self.uia = np.zeros(self.n_i)
             self.uii = np.zeros(self.n_i)
-            self.thresh = 0
             
             if rx_wave_start is None:
                 rx_wave_start = np.ones(self.n_lgn)
             
             # calculate average inputs and rates at the start of a geniculate wave
-            self.update_inps(rx_wave_start,100*self.dt_dyn,0.1)
+            self.thresh = 0
+            for _ in range(100):
+                self.update_inps(rx_wave_start,self.dt_dyn,0.1)
+                self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.uen + self.uea - self.uei_avg),
+                                            np.ones(self.n_i)*np.mean(self.uin + self.uia - self.uii_avg)))
             
             self.uee_avg = np.ones(self.n_e)*np.mean(self.uen + self.uea)
             self.uei_avg = np.ones(self.n_e)*np.mean(self.uei)
             self.uie_avg = np.ones(self.n_i)*np.mean(self.uin + self.uia)
             self.uii_avg = np.ones(self.n_i)*np.mean(self.uii)
             self.rx_avg = np.ones(self.n_lgn)*np.mean(rx_wave_start)
-            self.thresh = np.concatenate((self.uee_avg - self.uei_avg,self.uie_avg - self.uii_avg))
             
             x_sum = np.sum(self.wex,axis=0,keepdims=True) + np.sum(self.wix,axis=0,keepdims=True)
             e_sum = np.sum(self.wee,axis=0,keepdims=True) + np.sum(self.wie,axis=0,keepdims=True)
