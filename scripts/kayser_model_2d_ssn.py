@@ -219,8 +219,8 @@ class Model:
             self.thresh = 0
             for _ in range(100):
                 self.update_inps(rx_wave_start,self.dt_dyn,0.1)
-                self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.uen + self.uea - self.uei_avg),
-                                            np.ones(self.n_i)*np.mean(self.uin + self.uia - self.uii_avg)))
+                self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.uen + self.uea - self.uei),
+                                              np.ones(self.n_i)*np.mean(self.uin + self.uia - self.uii)))
             
             self.uee_avg = np.ones(self.n_e)*np.mean(self.uen + self.uea)
             self.uei_avg = np.ones(self.n_e)*np.mean(self.uei)
