@@ -86,6 +86,9 @@ class Model:
         self.ia_idx = slice(self.n_4+self.n_e,2*self.n_4)
         self.ei_idx = slice(2*self.n_4,2*self.n_4+self.n_e)
         self.ii_idx = slice(2*self.n_4+self.n_e,3*self.n_4)
+        self.tinv = np.concatenate((1/self.tau_n*np.ones(self.n_4),
+                                    1/self.tau_a*np.ones(self.n_4),
+                                    1/self.tau_g*np.ones(self.n_4)))
         print(self.n_idx,self.a_idx,self.g_idx,self.en_idx,self.in_idx,self.ea_idx,self.ia_idx,self.ei_idx,self.ii_idx)
         
         # define arbors
@@ -216,12 +219,9 @@ class Model:
                 rx_wave_start = np.ones(self.n_lgn)
             
             # calculate average inputs and rates at the start of a geniculate wave
-            self.thresh = 0
-            for _ in range(100):
-                self.update_inps(rx_wave_start,self.dt_dyn,0.1)
-                self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.uen + self.uea - self.uei_avg),
-                                            np.ones(self.n_i)*np.mean(self.uin + self.uia - self.uii_avg)))
-            
+            self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.wex@rx_wave_start),
+                                          np.ones(self.n_i)*np.mean(self.wix@rx_wave_start)))
+            self.update_inps(rx_wave_start,100*self.dt_dyn,0.1)
             self.uee_avg = np.ones(self.n_e)*np.mean(self.uen + self.uea)
             self.uei_avg = np.ones(self.n_e)*np.mean(self.uei)
             self.uie_avg = np.ones(self.n_i)*np.mean(self.uin + self.uia)
@@ -272,18 +272,13 @@ class Model:
         self,
         t: float,
         u: np.ndarray,
-        we: np.ndarray,
-        wi: np.ndarray,
+        w: np.ndarray,
         h: np.ndarray,
         ):
         r = np.fmax(u[self.n_idx] + u[self.a_idx] - u[self.g_idx] - self.thresh,0)**self.pow
         np.matmul(self.gain_mat,r,out=r)
-        ue = np.matmul(we,r[:self.n_e]) + h
-        ui = np.matmul(wi,r[self.n_e:])
-        out = np.zeros_like(u)
-        out[self.n_idx] = (   self.frac_n *ue - u[self.n_idx]) / self.tau_n
-        out[self.a_idx] = ((1-self.frac_n)*ue - u[self.a_idx]) / self.tau_a
-        out[self.g_idx] = (ui - u[self.g_idx]) / self.tau_g
+        out = w @ r + h - u
+        out *= self.tinv
         return out
 
     # integrate rate dynamics and update inputs
@@ -297,15 +292,20 @@ class Model:
         # calculate feedforward inputs
         he,hi = self.wex@rx,self.wix@rx
         h = np.concatenate((he,hi))
+        h = np.concatenate((self.frac_n*h,(1-self.frac_n)*h,np.zeros(self.n_4)))
         
         # create full recurrent weight matrix
-        we = np.block([[self.wee],[self.wie]])
-        wi = np.block([[inh_mult*self.wei],[inh_mult*self.wii]])
+        w = np.block([[self.frac_n*self.wee,np.zeros((self.n_e,self.n_e))],
+                      [self.frac_n*self.wie,np.zeros((self.n_e,self.n_e))],
+                      [(1-self.frac_n)*self.wee,np.zeros((self.n_e,self.n_e))],
+                      [(1-self.frac_n)*self.wie,np.zeros((self.n_e,self.n_e))],
+                      [np.zeros((self.n_e,self.n_e)),-inh_mult*self.wei],
+                      [np.zeros((self.n_e,self.n_e)),-inh_mult*self.wii]])
         
         # integrate dynamics
         sol = solve_ivp(self.ode_func,[0,int_time],
                         np.concatenate((self.uen,self.uin,self.uea,self.uia,self.uei,self.uii)),
-                        args=(we,wi,h),t_eval=[int_time],method='RK23')
+                        args=(w,h),t_eval=[int_time],method='RK23')
         
         # update inputs
         self.uen[:] = sol.y[self.en_idx,-1]
