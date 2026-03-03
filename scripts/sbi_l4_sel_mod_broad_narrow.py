@@ -292,7 +292,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     tsamp = nwrm-1 + np.arange(0,nphs) * nint
     resps = np.zeros((theta.shape[0],2,N**2,nori,nphs))
     for prm_idx in range(theta.shape[0]):
-        kern_nar = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,4].item()*7))**theta[prm_idx,9].item())
+        kern_nar = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,4].item()))**theta[prm_idx,9].item())
         norm = kern_nar.sum(axis=1).mean(axis=0)
         kern_nar /= norm
         
@@ -370,6 +370,7 @@ while thetas.shape[0] < num_samp:
     start = time.process_time()
     # sample from prior
     theta = full_prior.sample((this_samps,))
+    theta[:,4] *= 7
     # simulate sheet
     x = sheet_simulator(theta)
 

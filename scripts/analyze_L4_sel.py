@@ -88,8 +88,8 @@ for seed_idx in range(num_seeds):
     except:
         continue
         
-    inp_opm = file_dict['inp_opm'].reshape(N,N)
-    inp_mr = file_dict['inp_mr'].reshape(N,N)
+    inp_opm = file_dict['inp_opm'][0].reshape(N,N)
+    inp_mr = file_dict['inp_mr'][0].reshape(N,N)
     rate_opm = file_dict['L4_rate_opm'][0].reshape(N,N)
     rate_mr = file_dict['L4_rate_mr'][0].reshape(N,N)
 
