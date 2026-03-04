@@ -102,22 +102,36 @@ class Model:
             self.ax = np.exp(-self.scat_dists**2/(2*s_x**2))
         self.ax = np.concatenate((self.ax,self.ax),axis=1)
         if flat_e:
-            self.ae = ((self.dists <= cut_lim*s_b).astype(int) + broad_frac_e) * np.ones_like(self.dists)
+            norm_n = np.fmax(1e-4,(self.dists <= cut_lim*s_n).sum(1).mean(0))
+            norm_b = np.fmax(1e-4,(self.dists <= cut_lim*s_b).sum(1).mean(0))
+            self.ae = ((self.dists <= cut_lim*s_n).astype(int) + broad_frac_e * norm_n/norm_b) *\
+                np.ones_like(self.dists)
             self.mask_e = (self.dists <= cut_lim*s_b).astype(int)
         else:
-            self.ae = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_e * np.exp(-self.dists**2/(2*s_b**2))
+            norm_n = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_n**2)).sum(1).mean(0))
+            norm_b = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_b**2)).sum(1).mean(0))
+            self.ae = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_e * norm_n/norm_b *\
+                np.exp(-self.dists**2/(2*s_b**2))
             self.mask_e = (self.dists <= 2*cut_lim*s_b).astype(int)
         if flat_i:
-            self.ai = ((self.dists <= cut_lim*s_b).astype(int) + broad_frac_i) * np.ones_like(self.dists)
+            norm_n = np.fmax(1e-4,(self.dists <= cut_lim*s_n).sum(1).mean(0))
+            norm_b = np.fmax(1e-4,(self.dists <= cut_lim*s_b).sum(1).mean(0))
+            self.ai = ((self.dists <= cut_lim*s_n).astype(int) + broad_frac_i * norm_n/norm_b) *\
+                np.ones_like(self.dists)
             self.mask_i = (self.dists <= cut_lim*s_b).astype(int)
         else:
-            self.ai = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_i * np.exp(-self.dists**2/(2*s_b**2))
+            norm_n = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_n**2)).sum(1).mean(0))
+            norm_b = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_b**2)).sum(1).mean(0))
+            self.ai = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_i * norm_n/norm_b *\
+                np.exp(-self.dists**2/(2*s_b**2))
             self.mask_i = (self.dists <= 2*cut_lim*s_b).astype(int)
         self.mask_x = (self.scat_dists <= cut_lim*s_x).astype(int)
         self.mask_x = np.concatenate((self.mask_x,self.mask_x),axis=1)
         np.place(self.ax,self.mask_x==0,0)
         np.place(self.ae,self.mask_e==0,0)
         np.place(self.ai,self.mask_i==0,0)
+        self.ae /= np.mean(self.ae[self.mask_e==1])
+        self.ai /= np.mean(self.ai[self.mask_i==1])
         
         self.n_x_in_arb = np.mean(np.sum(self.ax,axis=1),axis=0)
         self.n_e_in_arb = np.sum(self.ae,axis=1)[0]
