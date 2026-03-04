@@ -218,11 +218,9 @@ def run_iter(
         res_dict['wei_rate'] = net.wei_rate
         res_dict['wie_rate'] = net.wie_rate
         res_dict['wii_rate'] = net.wii_rate
-        res_dict['uen'] = net.uen
-        res_dict['uea'] = net.uea
+        res_dict['uee'] = net.uee
         res_dict['uei'] = net.uei
-        res_dict['uin'] = net.uin
-        res_dict['uia'] = net.uia
+        res_dict['uie'] = net.uie
         res_dict['uii'] = net.uii
         res_dict['uee_avg'] = net.uee_avg
         res_dict['uei_avg'] = net.uei_avg

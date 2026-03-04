@@ -29,10 +29,6 @@ class Model:
         rx_wave_start: np.ndarray=None,
         ):
         # time constants of excitatory and inhibitory currents and NMDA vs AMPA fraction
-        self.tau_n = 0.3
-        self.tau_a = 0.01
-        self.tau_g = 0.01
-        self.frac_n = 0.7
         self.pow = 2
         
         # grid points and distances
@@ -75,21 +71,6 @@ class Model:
         self.n_i = self.n_e
         self.n_4 = self.n_e + self.n_i
         self.n_lgn = 2*n_x*n_grid**2
-        
-        # indices for receptors
-        self.n_idx = slice(0,self.n_4)
-        self.a_idx = slice(self.n_4,2*self.n_4)
-        self.g_idx = slice(2*self.n_4,3*self.n_4)
-        self.en_idx = slice(0,self.n_e)
-        self.in_idx = slice(self.n_e,self.n_4)
-        self.ea_idx = slice(self.n_4,self.n_4+self.n_e)
-        self.ia_idx = slice(self.n_4+self.n_e,2*self.n_4)
-        self.ei_idx = slice(2*self.n_4,2*self.n_4+self.n_e)
-        self.ii_idx = slice(2*self.n_4+self.n_e,3*self.n_4)
-        self.tinv = np.concatenate((1/self.tau_n*np.ones(self.n_4),
-                                    1/self.tau_a*np.ones(self.n_4),
-                                    1/self.tau_g*np.ones(self.n_4)))
-        print(self.n_idx,self.a_idx,self.g_idx,self.en_idx,self.in_idx,self.ea_idx,self.ia_idx,self.ei_idx,self.ii_idx)
         
         # define arbors
         broad_frac_e = w_prm_dict['broad_frac_e'] if w_prm_dict is not None else 1.0
@@ -222,11 +203,9 @@ class Model:
             self.wii_rate = 5e-6
             
             # initialize average inputs and rates
-            self.uen = np.zeros(self.n_e)
-            self.uea = np.zeros(self.n_e)
+            self.uee = np.zeros(self.n_e)
             self.uei = np.zeros(self.n_e)
-            self.uin = np.zeros(self.n_i)
-            self.uia = np.zeros(self.n_i)
+            self.uie = np.zeros(self.n_i)
             self.uii = np.zeros(self.n_i)
             
             if rx_wave_start is None:
@@ -236,9 +215,10 @@ class Model:
             self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.wex@rx_wave_start),
                                           np.ones(self.n_i)*np.mean(self.wix@rx_wave_start)))
             self.update_inps(rx_wave_start,100*self.dt_dyn,0.1)
-            self.uee_avg = np.ones(self.n_e)*np.mean(self.uen + self.uea)
+            
+            self.uee_avg = np.ones(self.n_e)*np.mean(self.uee)
             self.uei_avg = np.ones(self.n_e)*np.mean(self.uei)
-            self.uie_avg = np.ones(self.n_i)*np.mean(self.uin + self.uia)
+            self.uie_avg = np.ones(self.n_i)*np.mean(self.uie)
             self.uii_avg = np.ones(self.n_i)*np.mean(self.uii)
             self.rx_avg = np.ones(self.n_lgn)*np.mean(rx_wave_start)
             
@@ -260,11 +240,9 @@ class Model:
             self.wei_rate = init_dict['wei_rate']
             self.wie_rate = init_dict['wie_rate']
             self.wii_rate = init_dict['wii_rate']
-            self.uen = init_dict['uen']
-            self.uea = init_dict['uea']
+            self.uee = init_dict['uee']
             self.uei = init_dict['uei']
-            self.uin = init_dict['uin']
-            self.uia = init_dict['uia']
+            self.uie = init_dict['uie']
             self.uii = init_dict['uii']
             self.uee_avg = init_dict['uee_avg']
             self.uei_avg = init_dict['uei_avg']
@@ -289,11 +267,11 @@ class Model:
         w: np.ndarray,
         h: np.ndarray,
         ):
-        r = np.fmax(u[self.n_idx] + u[self.a_idx] - u[self.g_idx] - self.thresh,0)**self.pow
+        r = np.fmax(u,0)
         np.matmul(self.gain_mat,r,out=r)
-        out = w @ r + h - u
-        out *= self.tinv
-        return out
+        np.matmul(w,r,out=r)
+        r[:] += h - u
+        return r / self.dt_dyn
 
     # integrate rate dynamics and update inputs
     def update_inps(
@@ -306,47 +284,35 @@ class Model:
         # calculate feedforward inputs
         he,hi = self.wex@rx,self.wix@rx
         h = np.concatenate((he,hi))
-        h = np.concatenate((self.frac_n*h,(1-self.frac_n)*h,np.zeros(self.n_4)))
         
         # create full recurrent weight matrix
-        w = np.block([[self.frac_n*self.wee,np.zeros((self.n_e,self.n_e))],
-                      [self.frac_n*self.wie,np.zeros((self.n_e,self.n_e))],
-                      [(1-self.frac_n)*self.wee,np.zeros((self.n_e,self.n_e))],
-                      [(1-self.frac_n)*self.wie,np.zeros((self.n_e,self.n_e))],
-                      [np.zeros((self.n_e,self.n_e)),-inh_mult*self.wei],
-                      [np.zeros((self.n_e,self.n_e)),-inh_mult*self.wii]])
+        w = np.block([[self.wee,-inh_mult*self.wei],[self.wie,-inh_mult*self.wii]])
         
         # integrate dynamics
-        sol = solve_ivp(self.ode_func,[0,int_time],
-                        np.concatenate((self.uen,self.uin,self.uea,self.uia,self.uei,self.uii)),
-                        args=(w,h),t_eval=[int_time],method='RK23')
+        sol = solve_ivp(self.ode_func,[0,int_time],np.concatenate((self.uee-self.uei,self.uie-self.uii)),args=(w,h),t_eval=[int_time],method='RK23')
         
-        # update inputs
-        self.uen[:] = sol.y[self.en_idx,-1]
-        self.uin[:] = sol.y[self.in_idx,-1]
-        self.uea[:] = sol.y[self.ea_idx,-1]
-        self.uia[:] = sol.y[self.ia_idx,-1]
-        self.uei[:] = sol.y[self.ei_idx,-1]
-        self.uii[:] = sol.y[self.ii_idx,-1]
+        # compute rates and update inputs
+        r = np.fmax(sol.y[:,-1],0)
+        np.matmul(self.gain_mat,r,out=r)
+        re,ri = r[:self.n_e],r[self.n_e:]
+        self.uee[:] = self.wee@re + he
+        self.uie[:] = self.wie@re + hi
+        self.uei[:] = self.wei@ri
+        self.uii[:] = self.wii@ri
         
     # update input and rate averages
     def update_avgs(
         self,
         rx: np.ndarray,
         ):
-        # calculate feedforward inputs
-        he,hi = self.wex@rx,self.wix@rx
-        h = np.concatenate((he,hi))
-        
-        self.uee_avg[:] += self.a_avg * (self.uen + self.uea - self.uee_avg)
+        self.uee_avg[:] += self.a_avg * (self.uee - self.uee_avg)
         self.uei_avg[:] += self.a_avg * (self.uei - self.uei_avg)
-        self.uie_avg[:] += self.a_avg * (self.uin + self.uia - self.uie_avg)
+        self.uie_avg[:] += self.a_avg * (self.uie - self.uie_avg)
         self.uii_avg[:] += self.a_avg * (self.uii - self.uii_avg)
         self.rx_avg[:] += self.a_avg * (rx - self.rx_avg)
-        self.thresh[:] += self.a_avg * (h - self.thresh)
         
-        self.ue = self.uen + self.uea - self.uei
-        self.ui = self.uin + self.uia - self.uii
+        self.ue = self.uee - self.uei
+        self.ui = self.uie - self.uii
         self.ue_avg = self.uee_avg - self.uei_avg
         self.ui_avg = self.uie_avg - self.uii_avg
         
