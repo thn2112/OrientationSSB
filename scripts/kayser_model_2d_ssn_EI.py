@@ -75,6 +75,17 @@ class Model:
         self.n_4 = self.n_e + self.n_i
         self.n_lgn = 2*n_x*n_grid**2
         
+        # indices for receptors
+        self.e_idx = slice(0,self.n_4)
+        self.i_idx = slice(self.n_4,2*self.n_4)
+        self.ee_idx = slice(0,self.n_e)
+        self.ie_idx = slice(self.n_e,self.n_4)
+        self.ei_idx = slice(self.n_4,self.n_4+self.n_e)
+        self.ii_idx = slice(self.n_4+self.n_e,2*self.n_4)
+        self.tinv = np.concatenate((1/self.tau_e*np.ones(self.n_4),
+                                    1/self.tau_i*np.ones(self.n_4)))
+        print(self.e_idx,self.i_idx,self.ee_idx,self.ie_idx,self.ei_idx,self.ii_idx)
+        
         # define arbors
         broad_frac_e = w_prm_dict['broad_frac_e'] if w_prm_dict is not None else 1.0
         broad_frac_i = w_prm_dict['broad_frac_i'] if w_prm_dict is not None else 1.0
@@ -269,11 +280,10 @@ class Model:
         w: np.ndarray,
         h: np.ndarray,
         ):
-        r = np.fmax(u - self.thresh,0)**self.pow
+        r = np.fmax(u[self.e_idx] - u[self.i_idx] - self.thresh,0)**self.pow
         np.matmul(self.gain_mat,r,out=r)
-        np.matmul(w,r,out=r)
-        r[:] += h - u
-        return r * self.tinv
+        out = w @ r + h - u
+        return out * self.tinv
 
     # integrate rate dynamics and update inputs
     def update_inps(
@@ -285,22 +295,24 @@ class Model:
         
         # calculate feedforward inputs
         he,hi = self.wex@rx,self.wix@rx
-        h = np.concatenate((he,hi))
+        h = np.concatenate((he,hi,np.zeros(self.n_4)))
         
         # create full recurrent weight matrix
-        w = np.block([[self.wee,-inh_mult*self.wei],[self.wie,-inh_mult*self.wii]])
+        w = np.block([[self.wee,np.zeros((self.n_e,self.n_e))],
+                      [self.wie,np.zeros((self.n_e,self.n_e))],
+                      [np.zeros((self.n_e,self.n_e)),-inh_mult*self.wei],
+                      [np.zeros((self.n_e,self.n_e)),-inh_mult*self.wii]])
         
         # integrate dynamics
-        sol = solve_ivp(self.ode_func,[0,int_time],np.concatenate((self.uee-self.uei,self.uie-self.uii)),args=(w,h),t_eval=[int_time],method='RK23')
+        sol = solve_ivp(self.ode_func,[0,int_time],
+                        np.concatenate((self.uee,self.uie,self.uei,self.uii)),
+                        args=(w,h),t_eval=[int_time],method='RK23')
         
         # compute rates and update inputs
-        r = np.fmax(sol.y[:,-1],0)
-        np.matmul(self.gain_mat,r,out=r)
-        re,ri = r[:self.n_e],r[self.n_e:]
-        self.uee[:] = self.wee@re + he
-        self.uie[:] = self.wie@re + hi
-        self.uei[:] = self.wei@ri
-        self.uii[:] = self.wii@ri
+        self.uee[:] = sol.y[self.ee_idx,-1]
+        self.uie[:] = sol.y[self.ie_idx,-1]
+        self.uei[:] = sol.y[self.ei_idx,-1]
+        self.uii[:] = sol.y[self.ii_idx,-1]
         
     # update input and rate averages
     def update_avgs(
