@@ -93,7 +93,7 @@ class Model:
             norm_b = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_b**2)).sum(1).mean(0))
             self.ae = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_e * norm_n/norm_b *\
                 np.exp(-self.dists**2/(2*s_b**2))
-            self.mask_e = (self.dists <= 2*cut_lim*s_b).astype(int)
+            self.mask_e = (self.dists <= cut_lim*s_b).astype(int)
         if flat_i:
             norm_n = np.fmax(1e-4,(self.dists <= cut_lim*s_n).sum(1).mean(0))
             norm_b = np.fmax(1e-4,(self.dists <= cut_lim*s_b).sum(1).mean(0))
@@ -105,7 +105,7 @@ class Model:
             norm_b = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_b**2)).sum(1).mean(0))
             self.ai = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_i * norm_n/norm_b *\
                 np.exp(-self.dists**2/(2*s_b**2))
-            self.mask_i = (self.dists <= 2*cut_lim*s_b).astype(int)
+            self.mask_i = (self.dists <= cut_lim*s_b).astype(int)
         self.mask_x = (self.scat_dists <= cut_lim*s_x).astype(int)
         self.mask_x = np.concatenate((self.mask_x,self.mask_x),axis=1)
         np.place(self.ax,self.mask_x==0,0)
