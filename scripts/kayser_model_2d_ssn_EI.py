@@ -433,7 +433,7 @@ class Model:
         max_norm_wex = max_norm_wex[max_norm_wex > 1e-5 / np.mean(np.max(self.wex,axis=1))]
         max_norm_wix = self.wix/np.max(self.wix,axis=1,keepdims=True)
         max_norm_wix = max_norm_wix[max_norm_wix > 1e-5 / np.mean(np.max(self.wix,axis=1))]
-        new_thresh = np.quantile(np.concatenate((max_norm_wex,max_norm_wix)),0.2)
+        new_thresh = np.quantile(np.concatenate((max_norm_wex,max_norm_wix)),0.5)
         self.max_prop_thresh += self.a_avg * (new_thresh - self.max_prop_thresh)
         # print("new threshold:",self.max_prop_thresh)
         
