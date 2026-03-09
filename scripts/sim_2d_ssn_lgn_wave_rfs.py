@@ -236,7 +236,7 @@ def run_iter(
 net = init_net(init_iter)
 
 for n_iter in range(init_iter,init_iter+batch_iter):
-    run_iter(n_iter,net,save=(n_iter+1)%10==0)
+    run_iter(n_iter,net,save=(n_iter+1)%batch_iter==0)
 
 if init_iter+batch_iter < max_iter:
     os.system("python runjob_sim_2d_ssn_lgn_wave_rfs.py " + \
