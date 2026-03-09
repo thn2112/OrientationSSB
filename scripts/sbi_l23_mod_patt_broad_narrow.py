@@ -244,7 +244,7 @@ def get_sheet_resps(theta,N):
     c = 100
     thresh = 0
     nint = 3
-    nwrm = 15 * nint
+    nwrm = 10 * nint
     dt = 0.01 / nint
     
     tsamp = np.array([nwrm-1])
@@ -260,7 +260,7 @@ def get_sheet_resps(theta,N):
         
         for patt_idx,patt in enumerate(patts):
             def ff_inp(t):
-                return 1 + theta[prm_idx,9].item() * c * patt
+                return c*(1 + theta[prm_idx,9].item()*patt)
             resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
