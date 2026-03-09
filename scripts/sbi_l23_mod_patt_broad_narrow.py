@@ -51,7 +51,7 @@ else:
         prior = pickle.load(handle)
 
 # create distances between grid points
-N = 40
+N = 60
 
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
 dxs = np.abs(xs[:,:,None,None] - xs[None,None,:,:])
@@ -241,7 +241,6 @@ patts /= np.std(patts)
 def get_sheet_resps(theta,N):
     Jee,Jei,Jie,Jii = get_J(theta)
     
-    c = 100
     thresh = 0
     nint = 3
     nwrm = 10 * nint
@@ -260,7 +259,7 @@ def get_sheet_resps(theta,N):
         
         for patt_idx,patt in enumerate(patts):
             def ff_inp(t):
-                return c*(1 + theta[prm_idx,9].item()*patt)
+                return 1 + theta[prm_idx,9].item()*patt
             resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
