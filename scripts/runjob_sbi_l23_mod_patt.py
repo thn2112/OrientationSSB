@@ -24,17 +24,15 @@ def runjobs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=int, default=0)
     parser.add_argument("--cluster_", help=" String", default='burg')
-    parser.add_argument('--num_inner', '-ni', help='number of samples per outer loop',type=int, default=50)
-    parser.add_argument('--num_outer', '-no', help='number of outer loops',type=int, default=5)
+    parser.add_argument('--num_samp', '-ns', help='number of samples',type=int, default=50)
     parser.add_argument('--bayes_iter', '-bi', help='bayessian inference interation (0 = use prior, 1 = use first posterior)',type=int, default=0)
-    parser.add_argument('--gb', '-g', help='number of gbs per cpu',type=int, default=2)
+    parser.add_argument('--gb', '-g', help='number of gbs per cpu',type=int, default=5)
     
     args2 = parser.parse_args()
     args = vars(args2)
     
     cluster = str(args["cluster_"])
-    num_inner = int(args['num_inner'])
-    num_outer = int(args['num_outer'])
+    num_samp = int(args['num_samp'])
     bayes_iter = int(args['bayes_iter'])
     gb = int(args['gb'])
 
@@ -96,8 +94,8 @@ def runjobs():
         #--------------------------------------------------------------------------
         # Make SBTACH
         inpath = currwd + "/sbi_l23_mod_patt.py"
-        c1 = "{:s} -i $SLURM_ARRAY_TASK_ID -ni {:d} -no {:d} -bi {:d}".format(
-            inpath,num_inner,num_outer,bayes_iter)
+        c1 = "{:s} -i $SLURM_ARRAY_TASK_ID -ns {:d} -bi {:d}".format(
+            inpath,num_samp,bayes_iter)
         jobname="{:s}_bayes_iter={:d}_job_id={:d}".format(
             'sbi_l23_mod_patt',bayes_iter,outer_idx)
 
@@ -109,7 +107,7 @@ def runjobs():
             if cluster=='haba' or cluster=='moto' or cluster=='burg':
                 text_file.write("#SBATCH --account=theory \n")
             text_file.write("#SBATCH --job-name="+jobname+ "\n")
-            text_file.write("#SBATCH -t 0-23:59  \n")
+            text_file.write("#SBATCH -t 0-11:59  \n")
             text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
             # text_file.write("#SBATCH --gres=gpu\n")
             text_file.write("#SBATCH -c 1 \n")

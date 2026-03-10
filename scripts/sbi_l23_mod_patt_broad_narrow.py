@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from scipy import interpolate
 from scipy import integrate
+from scipy.signal import argrelmin,argrelmax
 
 from sbi.utils.user_input_checks import process_prior
 from sbi.utils import BoxUniform
@@ -64,6 +65,35 @@ nbins = 50
 
 idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
 
+npatt = 200
+patts_fft = np.fft.fft2(np.random.default_rng(0).normal(size=(npatt,N,N)))
+patts_fft[:,0,0] = 0 # remove DC component
+freqs = np.fft.fftfreq(N,1/N)
+freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
+
+decay = 8
+patts_fft *= np.exp(-0.5*freqs**2/decay**2)[None,:,:]
+
+patts = np.real(np.fft.ifft2(patts_fft).reshape(npatt,-1))
+for i in range(10):
+    patts -= np.mean(patts,axis=-1,keepdims=True)
+    patts /= np.std(patts,axis=-1,keepdims=True)
+    
+    patts -= np.mean(patts,axis=0,keepdims=True)
+    patts /= np.std(patts,axis=0,keepdims=True)
+
+decay = 12
+noise_filter = np.ones((N,N,N,N)) * np.exp(-0.5*freqs**2/decay**2)[:,:,None,None]
+
+def gen_noise(rng):
+    noise = rng.normal(size=(N,N,N,N))
+    noise = np.fft.fftn(noise)
+    noise *= noise_filter
+    noise = np.real(np.fft.ifftn(noise))
+    noise -= np.mean(noise)
+    noise /= np.std(noise)
+    return noise.reshape(N**2,N**2)
+
 # define simulation functions
 def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_nar,kern_bro,het_lev,N,ne,ni,threshe,threshi,
                     t0,dt,Nt,tsamp=None,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7,bro_frac_e=1.0,bro_frac_i=1.0):
@@ -92,14 +122,10 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_nar,k
     rng = np.random.default_rng(0)
     
     if np.isscalar(Jee):
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wee = Jee*(kern_nar.reshape(N**2,N**2) + bro_frac_e*kern_bro.reshape(N**2,N**2))*noise
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wei = Jei*(kern_nar.reshape(N**2,N**2) + bro_frac_i*kern_bro.reshape(N**2,N**2))*noise
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wie = Jie*(kern_nar.reshape(N**2,N**2) + bro_frac_e*kern_bro.reshape(N**2,N**2))*noise
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wii = Jii*(kern_nar.reshape(N**2,N**2) + bro_frac_i*kern_bro.reshape(N**2,N**2))*noise
+        Wee = Jee*(kern_nar.reshape(N**2,N**2) + bro_frac_e*kern_bro.reshape(N**2,N**2))*(1+het_lev*gen_noise(rng))
+        Wei = Jei*(kern_nar.reshape(N**2,N**2) + bro_frac_i*kern_bro.reshape(N**2,N**2))*(1+het_lev*gen_noise(rng))
+        Wie = Jie*(kern_nar.reshape(N**2,N**2) + bro_frac_e*kern_bro.reshape(N**2,N**2))*(1+het_lev*gen_noise(rng))
+        Wii = Jii*(kern_nar.reshape(N**2,N**2) + bro_frac_i*kern_bro.reshape(N**2,N**2))*(1+het_lev*gen_noise(rng))
         
         Wee = Wee[:,:,None]
         Wei = Wei[:,:,None]
@@ -116,23 +142,15 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_nar,k
             
         nprm = 1
         resps = np.zeros((2,N**2,1,len(tsamp)))
-    else:        
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
+    else:
         Wee = Jee[None,None,:]*(kern_nar.reshape(N**2,N**2,-1) + bro_frac_e[None,None,:] * \
-            kern_bro.reshape(N**2,N**2,-1))*noise
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
+            kern_bro.reshape(N**2,N**2,-1))*(1+het_lev[:,None,None]*gen_noise(rng)[None,:,:])
         Wei = Jei[None,None,:]*(kern_nar.reshape(N**2,N**2,-1) + bro_frac_i[None,None,:] * \
-            kern_bro.reshape(N**2,N**2,-1))*noise
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
+            kern_bro.reshape(N**2,N**2,-1))*(1+het_lev[:,None,None]*gen_noise(rng)[None,:,:])
         Wie = Jie[None,None,:]*(kern_nar.reshape(N**2,N**2,-1) + bro_frac_e[None,None,:] * \
-            kern_bro.reshape(N**2,N**2,-1))*noise
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
+            kern_bro.reshape(N**2,N**2,-1))*(1+het_lev[:,None,None]*gen_noise(rng)[None,:,:])
         Wii = Jii[None,None,:]*(kern_nar.reshape(N**2,N**2,-1) + bro_frac_i[None,None,:] * \
-            kern_bro.reshape(N**2,N**2,-1))*noise
+            kern_bro.reshape(N**2,N**2,-1))*(1+het_lev[:,None,None]*gen_noise(rng)[None,:,:])
         
         if len(xea.shape) == 1:
             xea = xea[:,None] * np.ones(len(Jee))[None,:]
@@ -224,26 +242,12 @@ def get_J(theta):
     
     return Jee,Jei,Jie,Jii
 
-rng = np.random.default_rng(0)
-
-npatt = 200
-patts_fft = np.fft.fft2(rng.normal(size=(npatt,N,N)))
-patts_fft[:,0,0] = 0 # remove DC component
-freqs = np.fft.fftfreq(N,1/N)
-freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
-
-decay = 8
-patts_fft *= np.exp(-0.5*freqs**2/decay**2)[None,:,:]
-
-patts = np.real(np.fft.ifft2(patts_fft).reshape(npatt,-1))
-patts /= np.std(patts)
-
 def get_sheet_resps(theta,N):
     Jee,Jei,Jie,Jii = get_J(theta)
     
     thresh = 0
     nint = 3
-    nwrm = 10 * nint
+    nwrm = 15 * nint
     dt = 0.01 / nint
     
     tsamp = np.array([nwrm-1])
@@ -284,8 +288,11 @@ def sheet_simulator(theta):
     theta[:,8] = het_level
     theta[:,9] = inp_str
     
-    returns: [mod,dim,min_r]
+    returns: [mod,corr_min,corr_max,freq,dim,min_r]
     mod = excitatory response modularity
+    corr_min = excitatory response correlation first minimum
+    corr_max = excitatory response correlation first maximum after the minimum
+    freq = spatial frequency corresponding to corr_max
     dim = excitatory response dimensionality
     min_r = average minimum excitatory response relative to the maximum
     '''
@@ -303,9 +310,23 @@ def sheet_simulator(theta):
     corr_curve = np.zeros((theta.shape[0],nbins))
     for i in range(nbins):
         corr_curve[:,i] = np.mean(corr[:,idxs == i+1],axis=-1)
-    arg_mins = np.argmin(corr_curve,axis=1)
+    arg_mins = np.zeros(theta.shape[0],dtype=int)
+    for i in range(theta.shape[0]):
+        try:
+            arg_mins[i] = argrelmin(corr_curve[i])[0][0]
+        except:
+            arg_mins[i] = np.argmin(corr_curve[i])
     corr_mins = np.array([corr_curve[i,arg_mins[i]] for i in range(theta.shape[0])])
-    corr_maxs = np.array([np.max(corr_curve[i,arg_mins[i]:]) for i in range(theta.shape[0])])
+    arg_maxs = np.zeros(theta.shape[0],dtype=int)
+    for i in range(theta.shape[0]):
+        try:
+            loc_maxs = argrelmax(corr_curve[i])[0]
+            arg_maxs[i] = loc_maxs[0]
+            if arg_maxs[i] < arg_mins[i]:
+                arg_maxs[i] = loc_maxs[1]
+        except:
+            arg_maxs[i] = np.argmax(corr_curve[i])
+    corr_maxs = np.array([corr_curve[i,arg_maxs[i]] for i in range(theta.shape[0])])
     mod = corr_maxs - corr_mins
     
     dim = np.zeros(theta.shape[0])
@@ -319,10 +340,13 @@ def sheet_simulator(theta):
     
     min_r = np.mean(np.min(resps[:,0,:,:],axis=-2) / np.max(resps[:,0,:,:],axis=-2),axis=-1)
     
-    out = torch.zeros((theta.shape[0],3),dtype=theta.dtype).to(theta.device)
+    out = torch.zeros((theta.shape[0],6),dtype=theta.dtype).to(theta.device)
     out[:,0] = torch.tensor(mod,dtype=theta.dtype).to(theta.device)
-    out[:,1] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
-    out[:,2] = torch.tensor(min_r,dtype=theta.dtype).to(theta.device)
+    out[:,1] = torch.tensor(corr_mins,dtype=theta.dtype).to(theta.device)
+    out[:,2] = torch.tensor(corr_maxs,dtype=theta.dtype).to(theta.device)
+    out[:,3] = torch.tensor(arg_maxs,dtype=theta.dtype).to(theta.device)
+    out[:,4] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
+    out[:,5] = torch.tensor(min_r,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3))
     
@@ -331,7 +355,7 @@ def sheet_simulator(theta):
 start = time.process_time()
 
 thetas = torch.zeros((0,10),dtype=torch.float32,device=device)
-xs = torch.zeros((0,3),dtype=torch.float32,device=device)
+xs = torch.zeros((0,6),dtype=torch.float32,device=device)
 
 while thetas.shape[0] < num_samp:
     this_samps = min(3, num_samp - thetas.shape[0])
