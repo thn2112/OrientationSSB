@@ -226,7 +226,7 @@ def get_J(theta):
 
 rng = np.random.default_rng(0)
 
-npatt = 300
+npatt = 200
 patts_fft = np.fft.fft2(rng.normal(size=(npatt,N,N)))
 patts_fft[:,0,0] = 0 # remove DC component
 freqs = np.fft.fftfreq(N,1/N)
@@ -267,7 +267,7 @@ def get_sheet_resps(theta,N):
                                     kern_nar,kern_bro,theta[prm_idx,8].item(),N,2,2,
                                     thresh,thresh,0,dt,nwrm,tsamp,
                                     bro_frac_e=theta[prm_idx,6].item(),bro_frac_i=theta[prm_idx,7].item())
-            resps[prm_idx,:,:,patt_idx] = resp.transpose((2,0,1,3))[:,:,0]
+            resps[prm_idx,:,:,patt_idx] = resp.transpose((2,0,1,3))[:,:,:,0]
         
     return resps
 
