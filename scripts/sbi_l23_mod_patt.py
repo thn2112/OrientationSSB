@@ -8,6 +8,7 @@ import torch
 from scipy import interpolate
 from scipy import integrate
 from scipy.signal import argrelmin,argrelmax
+from scipy.stats import norm,gamma
 
 from sbi.utils.user_input_checks import process_prior
 from sbi.utils import BoxUniform
@@ -82,7 +83,7 @@ for i in range(10):
     patts -= np.mean(patts,axis=0,keepdims=True)
     patts /= np.std(patts,axis=0,keepdims=True)
 
-decay = 12
+decay = 15
 noise_filter = np.ones((N,N,N,N)) * np.exp(-0.5*freqs**2/decay**2)[:,:,None,None]
 
 def gen_noise(rng):
@@ -93,6 +94,8 @@ def gen_noise(rng):
     noise -= np.mean(noise)
     noise /= np.std(noise)
     return noise.reshape(N**2,N**2)
+
+norm_dist = norm()
 
 # define simulation functions
 def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,kern_i,het_lev,N,ne,ni,threshe,threshi,
@@ -122,10 +125,12 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,ker
     rng = np.random.default_rng(0)
     
     if np.isscalar(Jee):
-        Wee = Jee*kern_e.reshape(N**2,N**2)*(1+het_lev*gen_noise(rng))
-        Wei = Jei*kern_i.reshape(N**2,N**2)*(1+het_lev*gen_noise(rng))
-        Wie = Jie*kern_e.reshape(N**2,N**2)*(1+het_lev*gen_noise(rng))
-        Wii = Jii*kern_i.reshape(N**2,N**2)*(1+het_lev*gen_noise(rng))
+        gam_dist = gamma(a=1/(het_lev**2),scale=het_lev**2)
+        
+        Wee = Jee*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+        Wei = Jei*kern_i.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+        Wie = Jie*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+        Wii = Jii*kern_i.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
         
         Wee = Wee[:,:,None]
         Wei = Wei[:,:,None]
