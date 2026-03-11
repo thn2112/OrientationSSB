@@ -325,7 +325,7 @@ def sheet_simulator(theta):
             if arg_maxs[i] < arg_mins[i]:
                 arg_maxs[i] = loc_maxs[1]
         except:
-            arg_maxs[i] = np.argmax(corr_curve[i])
+            arg_maxs[i] = np.argmax(corr_curve[i,arg_mins[i]:]) + arg_mins[i]
     corr_maxs = np.array([corr_curve[i,arg_maxs[i]] for i in range(theta.shape[0])])
     mod = corr_maxs - corr_mins
     
