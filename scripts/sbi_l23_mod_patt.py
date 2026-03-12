@@ -44,8 +44,8 @@ res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
 
 # create prior distribution
 if bayes_iter == 0:
-    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-3.0,-2.0, 0.02, 0.02, 0.01, 0.01],device=device),
-                       high=torch.tensor([ 1.0, 2.0,-0.0, 1.0, 0.1 , 0.1 , 0.5 , 0.10],device=device),)
+    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01],device=device),
+                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.10],device=device),)
 
     prior,_,_ = process_prior(prior)
 else:
@@ -66,7 +66,7 @@ nbins = 50
 
 idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
 
-npatt = 200
+npatt = 50
 patts_fft = np.fft.fft2(np.random.default_rng(0).normal(size=(npatt,N,N)))
 patts_fft[:,0,0] = 0 # remove DC component
 freqs = np.fft.fftfreq(N,1/N)
@@ -82,6 +82,8 @@ for i in range(10):
     
     patts -= np.mean(patts,axis=0,keepdims=True)
     patts /= np.std(patts,axis=0,keepdims=True)
+    
+dim_inp = 46.58640395399712
 
 decay = 15
 noise_filter = np.ones((N,N,N,N)) * np.exp(-0.5*freqs**2/decay**2)[:,:,None,None]
@@ -334,7 +336,8 @@ def sheet_simulator(theta):
             # dim[i] = np.sum(w)**2/np.sum(w**2)
             dim[i] = np.trace(corr[i,:,:])**2 / np.trace(corr[i,:,:] @ corr[i,:,:])
         except:
-            dim[i] = 100
+            dim[i] = dim_inp
+    dim /= dim_inp
     
     min_r = np.mean(np.min(resps[:,0,:,:],axis=-2) / np.max(resps[:,0,:,:],axis=-2),axis=-1)
     
@@ -356,7 +359,7 @@ thetas = torch.zeros((0,8),dtype=torch.float32,device=device)
 xs = torch.zeros((0,6),dtype=torch.float32,device=device)
 
 while thetas.shape[0] < num_samp:
-    this_samps = min(3, num_samp - thetas.shape[0])
+    this_samps = 1
     
     start = time.process_time()
     # sample from prior
