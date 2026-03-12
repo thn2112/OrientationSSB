@@ -23,6 +23,7 @@ class Model:
         rec_e_plast: bool=True, # whether recurrent weights are plastic
         rec_i_plast: bool=True, # whether recurrent weights are plastic
         rec_i_ltd: float=1.0, # factor for LTD of inhibitory weights
+        rec_het: bool=False, # whether to introduce heterogeneity in recurrent learning
         w_prm_dict: dict=None, # dictionary of initial weight parameters
         init_dict: dict=None,
         seed: int=None,
@@ -83,29 +84,29 @@ class Model:
             self.ax = np.exp(-self.scat_dists**2/(2*s_x**2))
         self.ax = np.concatenate((self.ax,self.ax),axis=1)
         if flat_e:
-            norm_n = np.fmax(1e-4,(self.dists <= cut_lim*s_n).sum(1).mean(0))
-            norm_b = np.fmax(1e-4,(self.dists <= cut_lim*s_b).sum(1).mean(0))
+            norm_n = np.fmax(0,(self.dists <= cut_lim*s_n).sum(1).mean(0))
+            norm_b = np.fmax(0,(self.dists <= cut_lim*s_b).sum(1).mean(0))
             self.ae = ((self.dists <= cut_lim*s_n).astype(int) + broad_frac_e * norm_n/norm_b) *\
                 np.ones_like(self.dists)
             self.mask_e = (self.dists <= cut_lim*s_b).astype(int)
         else:
-            norm_n = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_n**2)).sum(1).mean(0))
-            norm_b = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_b**2)).sum(1).mean(0))
-            self.ae = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_e * norm_n/norm_b *\
-                np.exp(-self.dists**2/(2*s_b**2))
-            self.mask_e = (self.dists <= cut_lim*s_b).astype(int)
+            norm_n = np.fmax(0,np.exp(-self.dists**2/(s_n**2)).sum(1).mean(0))
+            norm_b = np.fmax(0,np.exp(-self.dists**2/(s_b**2)).sum(1).mean(0))
+            self.ae = np.exp(-self.dists**2/(s_n**2)) + broad_frac_e * norm_n/norm_b *\
+                np.exp(-self.dists**2/(s_b**2))
+            self.mask_e = (self.dists <= 2*cut_lim*s_b).astype(int)
         if flat_i:
-            norm_n = np.fmax(1e-4,(self.dists <= cut_lim*s_n).sum(1).mean(0))
-            norm_b = np.fmax(1e-4,(self.dists <= cut_lim*s_b).sum(1).mean(0))
+            norm_n = np.fmax(0,(self.dists <= cut_lim*s_n).sum(1).mean(0))
+            norm_b = np.fmax(0,(self.dists <= cut_lim*s_b).sum(1).mean(0))
             self.ai = ((self.dists <= cut_lim*s_n).astype(int) + broad_frac_i * norm_n/norm_b) *\
                 np.ones_like(self.dists)
             self.mask_i = (self.dists <= cut_lim*s_b).astype(int)
         else:
-            norm_n = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_n**2)).sum(1).mean(0))
-            norm_b = np.fmax(1e-4,np.exp(-self.dists**2/(2*s_b**2)).sum(1).mean(0))
-            self.ai = np.exp(-self.dists**2/(2*s_n**2)) + broad_frac_i * norm_n/norm_b *\
-                np.exp(-self.dists**2/(2*s_b**2))
-            self.mask_i = (self.dists <= cut_lim*s_b).astype(int)
+            norm_n = np.fmax(0,np.exp(-self.dists**2/(s_n**2)).sum(1).mean(0))
+            norm_b = np.fmax(0,np.exp(-self.dists**2/(s_b**2)).sum(1).mean(0))
+            self.ai = np.exp(-self.dists**2/(s_n**2)) + broad_frac_i * norm_n/norm_b *\
+                np.exp(-self.dists**2/(s_b**2))
+            self.mask_i = (self.dists <= 2*cut_lim*s_b).astype(int)
         self.mask_x = (self.scat_dists <= cut_lim*s_x).astype(int)
         self.mask_x = np.concatenate((self.mask_x,self.mask_x),axis=1)
         np.place(self.ax,self.mask_x==0,0)
@@ -169,10 +170,16 @@ class Model:
             # initialize weights
             self.wex = rng.uniform(0.2,0.8,size=(self.n_e,self.n_lgn)) * self.ax
             self.wix = rng.uniform(0.2,0.8,size=(self.n_i,self.n_lgn)) * self.ax
-            self.wee = rng.uniform(0.2,0.8,size=(self.n_e,self.n_e)) * self.ae
-            self.wei = rng.uniform(0.2,0.8,size=(self.n_e,self.n_i)) * self.ai
-            self.wie = rng.uniform(0.2,0.8,size=(self.n_i,self.n_e)) * self.ae
-            self.wii = rng.uniform(0.2,0.8,size=(self.n_i,self.n_i)) * self.ai
+            if rec_het:
+                self.wee = rng.uniform(0.2,0.8,size=(self.n_e,self.n_e)) * self.ae
+                self.wei = rng.uniform(0.2,0.8,size=(self.n_e,self.n_i)) * self.ai
+                self.wie = rng.uniform(0.2,0.8,size=(self.n_i,self.n_e)) * self.ae
+                self.wii = rng.uniform(0.2,0.8,size=(self.n_i,self.n_i)) * self.ai
+            else:
+                self.wee = self.ae.copy()
+                self.wei = self.ai.copy()
+                self.wie = self.ae.copy()
+                self.wii = self.ai.copy()
             
             # randomly choose some L4 cells to be more on/off dominated
             # on_dom = rng.choice([1,-1],size=(self.n_e,))
