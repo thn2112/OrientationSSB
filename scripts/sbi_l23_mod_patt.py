@@ -72,7 +72,7 @@ patts_fft[:,0,0] = 0 # remove DC component
 freqs = np.fft.fftfreq(N,1/N)
 freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
 
-decay = 8
+decay = 12
 patts_fft *= np.exp(-0.5*freqs**2/decay**2)[None,:,:]
 
 patts = np.real(np.fft.ifft2(patts_fft).reshape(npatt,-1))
