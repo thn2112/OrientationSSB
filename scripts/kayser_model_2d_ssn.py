@@ -427,11 +427,11 @@ class Model:
         
         # implement pruning by shrinking small weights
         thresh = np.max(self.wex,axis=1,keepdims=True) * self.max_prop_thresh
-        self.wex *= np.heaviside(self.wex,0)*(0.8+0.2*np.heaviside(self.wex-thresh,0))
+        self.wex *= np.heaviside(self.wex,0)*(0.85+0.15*np.heaviside(self.wex-thresh,0))
         self.wex *= self.wff_sum / np.sum(self.wex,axis=1,keepdims=True)
         
         thresh = np.max(self.wix,axis=1,keepdims=True) * self.max_prop_thresh
-        self.wix *= np.heaviside(self.wix,0)*(0.8+0.2*np.heaviside(self.wix-thresh,0))
+        self.wix *= np.heaviside(self.wix,0)*(0.85+0.15*np.heaviside(self.wix-thresh,0))
         self.wix *= self.wff_sum / np.sum(self.wix,axis=1,keepdims=True)
         
     # update weights with collected changes, then clip and normalize weights
