@@ -123,6 +123,7 @@ class Model:
         
         # postsynaptic weight normalization
         self.wff_sum = w_prm_dict['wff_sum'] if w_prm_dict is not None else 1.0
+        self.inh_inp_fact = w_prm_dict['inh_inp_fact'] if w_prm_dict is not None else 1.0
         self.wee_sum = w_prm_dict['wee_sum'] if w_prm_dict is not None else 0.05222626
         self.wie_sum = w_prm_dict['wie_sum'] if w_prm_dict is not None else 0.01108487
         self.wei_sum = w_prm_dict['wei_sum'] if w_prm_dict is not None else 0.07327422
@@ -220,7 +221,7 @@ class Model:
             
             # calculate average inputs and rates at the start of a geniculate wave
             self.thresh = np.concatenate((np.ones(self.n_e)*np.mean(self.wex@rx_wave_start),
-                                          np.ones(self.n_i)*np.mean(self.wix@rx_wave_start)))
+                                          np.ones(self.n_i)*np.mean(self.inh_inp_fact*self.wix@rx_wave_start)))
             self.update_inps(rx_wave_start,100*self.dt_dyn,0.1)
             
             self.uee_avg = np.ones(self.n_e)*np.mean(self.uee)
@@ -289,7 +290,7 @@ class Model:
         ):
         
         # calculate feedforward inputs
-        he,hi = self.wex@rx,self.wix@rx
+        he,hi = self.wex@rx,self.inh_inp_fact*self.wix@rx
         h = np.concatenate((he,hi))
         
         # create full recurrent weight matrix
@@ -312,11 +313,15 @@ class Model:
         self,
         rx: np.ndarray,
         ):
+        he,hi = self.wex@rx,self.inh_inp_fact*self.wix@rx
+        h = np.concatenate((he,hi))
+        
         self.uee_avg[:] += self.a_avg * (self.uee - self.uee_avg)
         self.uei_avg[:] += self.a_avg * (self.uei - self.uei_avg)
         self.uie_avg[:] += self.a_avg * (self.uie - self.uie_avg)
         self.uii_avg[:] += self.a_avg * (self.uii - self.uii_avg)
         self.rx_avg[:] += self.a_avg * (rx - self.rx_avg)
+        self.thresh[:] += self.a_avg * (h - self.thresh)
         
         self.ue = self.uee - self.uei
         self.ui = self.uie - self.uii

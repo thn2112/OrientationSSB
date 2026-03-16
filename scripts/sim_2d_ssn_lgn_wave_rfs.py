@@ -101,6 +101,7 @@ w_prm_dict = {
 
 w_prm_dict.update({
     'wff_sum': wff_sum,
+    'inh_inp_fact': 0.5,
     'wee_sum': 10**log10JEE * (1+w_prm_dict['broad_frac_e']),
     'wei_sum': 10**log10JEI * (1+w_prm_dict['broad_frac_i']),
     'wie_sum': 10**log10JIE * (1+w_prm_dict['broad_frac_e']),
