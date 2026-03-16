@@ -58,8 +58,9 @@ if bayes_iter == 0:
     theta[:,10] = inh_os_mult
     theta[:,11] = inh_ps_mult
     '''
-    full_prior = BoxUniform(low =torch.tensor([0.0,-0.5,-2.5,-2.0, 0.2, 1.0,-2.0,-2.0,-2.0,-2.0, 0.5, 0.5],device=device),
-                            high=torch.tensor([1.0, 1.0,-0.5, 1.0, 1.0, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],device=device),)
+    full_prior = BoxUniform(
+        low =torch.tensor([0.0,-0.5,-2.5,-2.0, 0.2, 1.0,-2.0,-2.0,-2.0,-2.0, 0.1, 0.1],device=device),
+        high=torch.tensor([1.0, 1.0,-0.5, 1.0, 1.0, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],device=device),)
 else:
     try:
         with open(f'./../notebooks/phase_ring_broad_narrow_posterior_{bayes_iter:d}.pkl','rb') as handle:
@@ -343,8 +344,8 @@ def get_resps(theta):
                             ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),Jie[prm_idx].item(),Jii[prm_idx].item(),2,2,
                             thresh,thresh,0.25,4*50,
                             s_n=theta[prm_idx,4].item() * np.sqrt(sig2),s_b=theta[prm_idx,5].item() * np.sqrt(sig2),
-                            frac_ee_broad=theta[prm_idx,6].item(),frac_ei_broad=theta[prm_idx,7].item(),
-                            frac_ie_broad=theta[prm_idx,8].item(),frac_ii_broad=theta[prm_idx,9].item())
+                            frac_ee_broad=2**theta[prm_idx,6].item(),frac_ei_broad=2**theta[prm_idx,7].item(),
+                            frac_ie_broad=2**theta[prm_idx,8].item(),frac_ii_broad=2**theta[prm_idx,9].item())
         resps[prm_idx,:,:,:,:] = resp.reshape(2,nos,nori,nphs)
         
     return resps
