@@ -180,6 +180,7 @@ def calc_w_binned(w_full):
                         (dpos_bins[postpop_idx,:,prepop_idx,:] == dpo_idx) &\
                         (dphss_bins[postpop_idx,:,prepop_idx,:] == dphs_idx)
                     this_w_binned = w_full[postpop_idx,:,prepop_idx,:][idxs].mean()
+                    this_w_binned *= np.count_nonzero(idxs,-1)[np.any(idxs,-1)].mean()
                     w_binned[postpop_idx,postos_idx,:,:,prepop_idx,preos_idx,:,:] +=\
                         this_w_binned * circulant(dpo_circ_vec)[:,None,:,None] * circulant(dphs_circ_vec)[None,:,None,:]
     
