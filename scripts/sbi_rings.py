@@ -63,10 +63,10 @@ if bayes_iter == 0:
         high=torch.tensor([1.0, 1.0,-0.5, 1.0, 1.0, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],device=device),)
 else:
     try:
-        with open(f'./../notebooks/phase_ring_broad_narrow_posterior_{bayes_iter:d}.pkl','rb') as handle:
+        with open(f'./../notebooks/rings_posterior_{bayes_iter:d}.pkl','rb') as handle:
             full_prior = pickle.load(handle)
     except:
-        with open(f'./../notebooks/phase_ring_broad_narrow_posterior.pkl','rb') as handle:
+        with open(f'./../notebooks/rings_posterior.pkl','rb') as handle:
             full_prior = pickle.load(handle)
 
 N = 60
