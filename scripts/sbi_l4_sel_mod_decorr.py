@@ -372,7 +372,7 @@ def sheet_simulator(theta):
     resp_omap,mr = af.calc_OPM_MR(resps[:,0,:,:,:])
     os = np.abs(resp_omap)
     
-    inp_po = np.angle(omap.flatten())*180/(2*np.pi)
+    inp_po = np.angle(omap[0].flatten())*180/(2*np.pi)
     inp_po[inp_po > 90] -= 180
     out_po = np.angle(resp_omap)*180/(2*np.pi)
     out_po[out_po > 90] -= 180
