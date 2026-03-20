@@ -307,7 +307,7 @@ def get_resps(theta):
     Jee,Jei,Jie,Jii = get_J(theta)
     
     c = 100
-    thresh = 0
+    thresh = c
     
     oris = (np.linspace(0,np.pi,nori,endpoint=False)[None,:,None] * np.ones((nos,1,nphs))).flatten()
     phss = (np.linspace(0,2*np.pi,nphs,endpoint=False)[None,None,:] * np.ones((nos,nori,1))).flatten()
