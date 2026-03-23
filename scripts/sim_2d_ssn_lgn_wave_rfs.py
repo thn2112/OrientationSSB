@@ -88,8 +88,8 @@ s_b = 1.0814339 * np.sqrt(sig2)
 broad_frac_e = 1.5067171
 broad_frac_i = 0.51946485
 log10JEE = -1.3118899
-log10JEI = -1.9095932
-log10JIE = -1.2990655
+log10JEI = -1.9095932# - 0.5
+log10JIE = -1.2990655# + 0.5
 log10JII = -2.0127172
 
 w_prm_dict = {
@@ -101,7 +101,7 @@ w_prm_dict = {
 
 w_prm_dict.update({
     'wff_sum': wff_sum,
-    'inh_inp_fact': 0.5,
+    'inh_inp_fact': 0.2,#1.0,
     'wee_sum': 10**log10JEE * (1+w_prm_dict['broad_frac_e']),
     'wei_sum': 10**log10JEI * (1+w_prm_dict['broad_frac_i']),
     'wie_sum': 10**log10JIE * (1+w_prm_dict['broad_frac_e']),
@@ -157,17 +157,21 @@ def run_iter(
     n_frame = lgn_spikes.shape[0]
     print(n_lgn,'LGN cells')
 
+    # set inhibitory input level to slowly ramp with development
+    net.inh_inp_fact = np.fmin(1,n_iter/50)
+
     start = time.process_time()
     for idx in range(n_frame):
         rx = lgn_spikes[idx]
+        inh_mult = 1.0
         # if n_iter<10:
         #     inh_mult = 0.1 + 0.09*n_iter + 0.09*idx/n_frame
         # else:
         #     inh_mult = 1.0
-        if n_iter<10:
-            inh_mult = 0.5 + 0.05*n_iter + 0.05*idx/n_frame
-        else:
-            inh_mult = 1.0
+        # if n_iter<10:
+        #     inh_mult = 0.5 + 0.05*n_iter + 0.05*idx/n_frame
+        # else:
+        #     inh_mult = 1.0
         
         # update inputs and rates
         net.update_inps(rx,dt_stim,inh_mult)
