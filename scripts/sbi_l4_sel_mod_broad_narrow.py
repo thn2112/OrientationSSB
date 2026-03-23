@@ -41,17 +41,19 @@ res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
 
 # create prior distribution
 if bayes_iter == 0:
+    '''
+    theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
+    theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
+    theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
+    theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
+    theta[:,4] = s_n
+    theta[:,5] = s_b
+    theta[:,6] = log2(Je_broad / Je_narrow)
+    theta[:,7] = log2(Ji_broad / Ji_narrow)
+    '''
     # load posterior of phase ring connectivity parameters
-    with open('./../notebooks/phase_ring_broad_narrow_posterior.pkl','rb') as handle:
-        posterior = pickle.load(handle)
-        
-    full_prior = PostTimesBoxUniform(posterior,
-                                     post_low =torch.tensor([0.0,-0.5,-2.5,-2.0, 0.01,0.1,0.1],device=device),
-                                     post_high=torch.tensor([1.0, 1.0,-0.5, 1.0, 0.1 ,1.5,1.5],device=device),
-                                     low =torch.tensor([0.1, 0.2, 2.0],device=device),
-                                     high=torch.tensor([1.2, 1.0, 4.0],device=device),)
-
-    full_prior,_,_ = process_prior(full_prior)
+    with open('./../notebooks/rings_posterior_2.pkl','rb') as handle:
+        full_prior = pickle.load(handle)
 else:
     with open(f'./../notebooks/l4_broad_narrow_posterior_{bayes_iter:d}.pkl','rb') as handle:
         full_prior = pickle.load(handle)
@@ -100,7 +102,7 @@ mag_fact = 0.02
 L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=False,EI_pol_corr=0.3)
+sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True)
 
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
 dxs = np.abs(xs[:,:,None,None] - xs[None,None,:,:])
@@ -182,15 +184,13 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_nar,k
         xig = x[5*ncell:6*ncell,:]
         
         ff_inp = inp(t)
-        ff_inp_e = ff_inp[:ncell]
-        ff_inp_i = ff_inp[ncell:]
 
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
         
-        net_ee = np.einsum('ijk,jk->ik',Wee,ye) + ff_inp_e[:,None]
+        net_ee = np.einsum('ijk,jk->ik',Wee,ye) + ff_inp[:,None]
         net_ei = np.einsum('ijk,jk->ik',Wei,yi)
-        net_ie = np.einsum('ijk,jk->ik',Wie,ye) + ff_inp_i[:,None]
+        net_ie = np.einsum('ijk,jk->ik',Wie,ye) + ff_inp[:,None]
         net_ii = np.einsum('ijk,jk->ik',Wii,yi)
         
         dx = np.zeros_like(x)
@@ -262,23 +262,17 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
     theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
-    theta[:,4] = narrow_ker
-    theta[:,5] = Je_narrow / Je_broad
-    theta[:,6] = Ji_narrow / Ji_broad
-    theta[:,7] = J_fact
-    theta[:,8] = broad_ker
-    theta[:,9] = p_ker
+    theta[:,4] = s_n
+    theta[:,5] = s_b
+    theta[:,6] = log2(Je_broad / Je_narrow)
+    theta[:,7] = log2(Ji_broad / Ji_narrow)
     
     returns: resps, array of shape (theta.shape[0],2,N**2,nori=8,nphs=8)
     '''
-    gam_map_flat = np.concatenate((gam_map.flatten(),gam_map.flatten()))
-    ori_map_flat = np.concatenate((ori_map.flatten(),ori_map.flatten()))
+    gam_map_flat = gam_map.flatten()
+    ori_map_flat = ori_map.flatten()
     
     Jee,Jei,Jie,Jii = get_J(theta)
-    Jee *= theta[:,7]
-    Jei *= theta[:,7]
-    Jie *= theta[:,7]
-    Jii *= theta[:,7]
     
     c = 100
     thresh = c
@@ -292,18 +286,16 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     tsamp = nwrm-1 + np.arange(0,nphs) * nint
     resps = np.zeros((theta.shape[0],2,N**2,nori,nphs))
     for prm_idx in range(theta.shape[0]):
-        kern_nar = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,4].item()))**theta[prm_idx,9].item())
+        kern_nar = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,4].item()))**2)
         norm = kern_nar.sum(axis=1).mean(axis=0)
         kern_nar /= norm
         
-        kern_bro = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,8].item()))**theta[prm_idx,9].item())
+        kern_bro = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,5].item()))**2)
         norm = kern_bro.sum(axis=1).mean(axis=0)
         kern_bro /= norm
         
         for ori_idx,ori in enumerate(oris):
-            phs_map_flat = np.concatenate(
-                (mf.gen_abs_phs_map(N,rf_sct_map[0],pol_map[0],ori,grate_freq,L_deg).flatten(),
-                 mf.gen_abs_phs_map(N,rf_sct_map[1],pol_map[1],ori,grate_freq,L_deg).flatten()))
+            phs_map_flat = mf.gen_abs_phs_map(N,rf_sct_map,pol_map,ori,grate_freq,L_deg).flatten()
             def ff_inp(t):
                 return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
             resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
@@ -312,7 +304,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_nar,kern_bro,N,2,2,
                                     thresh,thresh,0,dt,nwrm+nint*nphs,tsamp,
-                                    bro_frac_e=theta[prm_idx,5].item(),bro_frac_i=theta[prm_idx,6].item())
+                                    bro_frac_e=2**theta[prm_idx,6].item(),bro_frac_i=2**theta[prm_idx,7].item())
             resps[prm_idx,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
@@ -323,10 +315,10 @@ def sheet_simulator(theta):
     theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
     theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
-    theta[:,4] = J_lat / J_pair
-    theta[:,5] = J_fact
-    theta[:,6] = l_ker
-    theta[:,7] = p_ker
+    theta[:,4] = s_n
+    theta[:,5] = s_b
+    theta[:,6] = log2(Je_broad / Je_narrow)
+    theta[:,7] = log2(Ji_broad / Ji_narrow)
     
     returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr]
     os = excitatory orientation selectivity
@@ -361,7 +353,7 @@ def sheet_simulator(theta):
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
-thetas = torch.zeros((0,10))
+thetas = torch.zeros((0,8))
 xs = torch.zeros((0,11))
 
 while thetas.shape[0] < num_samp:
@@ -370,7 +362,6 @@ while thetas.shape[0] < num_samp:
     start = time.process_time()
     # sample from prior
     theta = full_prior.sample((this_samps,))
-    theta[:,4] *= 7
     # simulate sheet
     x = sheet_simulator(theta)
 
