@@ -184,7 +184,7 @@ def run_iter(
         
         if (idx+1)%n_batch==0:
             # update learning rates if during first two iterations
-            if n_iter<2:
+            if n_iter<50:
                 net.update_learn_rates()
                 # print(net.wex_rate,net.wee_rate,net.wei_rate)
                 # print(net.wix_rate,net.wie_rate,net.wii_rate)
