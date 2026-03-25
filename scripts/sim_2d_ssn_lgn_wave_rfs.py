@@ -83,14 +83,14 @@ if not os.path.exists(res_dir):
     os.makedirs(res_dir)
     
 sig2 = 0.00095
-s_n = 0.06108959 * np.sqrt(sig2)
-s_b = 1.0814339 * np.sqrt(sig2)
-broad_frac_e = 1.5067171
-broad_frac_i = 0.51946485
-log10JEE = -1.3118899
-log10JEI = -1.9095932# - 0.5
-log10JIE = -1.2990655# + 0.5
-log10JII = -2.0127172
+s_n = 0.46638972 * np.sqrt(sig2)
+s_b = 3.1936202 * np.sqrt(sig2)
+broad_frac_e = 0.74130374
+broad_frac_i = 0.5984383
+log10JEE = -0.7561108
+log10JEI = -1.1950144
+log10JIE = -0.9078631
+log10JII = -1.4561069
 
 w_prm_dict = {
     's_n':          s_n,
@@ -101,7 +101,7 @@ w_prm_dict = {
 
 w_prm_dict.update({
     'wff_sum': wff_sum,
-    'inh_inp_fact': 0.2,#1.0,
+    'inh_inp_fact': 0.0,
     'wee_sum': 10**log10JEE * (1+w_prm_dict['broad_frac_e']),
     'wei_sum': 10**log10JEI * (1+w_prm_dict['broad_frac_i']),
     'wie_sum': 10**log10JIE * (1+w_prm_dict['broad_frac_e']),
