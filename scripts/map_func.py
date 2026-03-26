@@ -43,12 +43,19 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,ker
     
     return sctmap,polmap
 
-def gen_abs_phs_map(N,rf_sct_map,pol_map,ori,freq,Lgrid):
+def gen_abs_phs_map(N,rf_sct_map,pol_map,ori,freq,Lgrid,periodic=True):
     xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
     abs_rf_centx = rf_sct_map[:,:,0] + xs
     abs_rf_centy = rf_sct_map[:,:,1] + ys
     
-    abs_phs = 2*np.pi*np.mod(freq*Lgrid*(np.cos(ori)*abs_rf_centx + np.sin(ori)*abs_rf_centy) + 0.5*pol_map,1)
+    if periodic:
+        kx = np.round(freq*Lgrid*np.cos(ori))
+        ky = np.round(freq*Lgrid*np.sin(ori))
+    else:
+        kx = freq*Lgrid*np.cos(ori)
+        ky = freq*Lgrid*np.sin(ori)
+    
+    abs_phs = 2*np.pi*np.mod(kx*abs_rf_centx + ky*abs_rf_centy + 0.5*pol_map,1)
     return abs_phs
 
 # Define function to generate clustered L4 input orientation map
