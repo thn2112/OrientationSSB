@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import qmc
 
-def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,seed=0):
+def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,kern_type='bandpass',seed=0):
     rng = np.random.default_rng(seed)
 
     ks = np.arange(N)/N
@@ -10,16 +10,25 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,see
     ks = np.sqrt(kxs**2 + kys**2)
     kpol = 1/(np.sqrt(sig2)*pol_scale)
     
-    k_kern = ks*np.exp(0.125-2*(ks - 0.75*kpol)**2/kpol**2)
+    if kern_type == 'bandpass':
+        k_kern = ks*np.exp(0.125-2*(ks - 0.75*kpol)**2/kpol**2)
+    elif kern_type == 'lowpass':
+        k_kern = np.exp(-0.5*(ks/kpol)**2)
+    elif kern_type == 'highpass':
+        k_kern = 1 - np.exp(-0.5*(ks/kpol)**2)
 
     if EI_match:
+        # polmap = (np.fft.ifft2(k_kern*\
+        #     np.fft.fft2(rng.binomial(n=1,p=0.5,size=(N,N))-0.5)) > 0).astype(int)
         polmap = (np.fft.ifft2(k_kern*\
-            np.fft.fft2(rng.binomial(n=1,p=0.5,size=(N,N))-0.5)) > 0).astype(int)
+            np.fft.fft2(rng.normal(size=(N,N)))) > 0).astype(int)
     
         sctmap = rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2))
     else:
-        e_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
-        i_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
+        # e_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
+        # i_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
+        e_field = rng.normal(size=(N,N))
+        i_field = rng.normal(size=(N,N))
         s_field = (e_field + i_field) / np.sqrt(2)
         d_field = (e_field - i_field) / np.sqrt(2)
         del e_field, i_field
