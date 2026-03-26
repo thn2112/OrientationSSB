@@ -6,6 +6,9 @@ import argparse
 import numpy as np
 import torch
 from scipy.interpolate import CubicSpline
+from scipy import integrate
+from scipy.signal import argrelmin,argrelmax
+from scipy.stats import norm,gamma
 
 from sbi.utils.user_input_checks import process_prior
 
@@ -14,13 +17,11 @@ from sbi_func import PostTimesBoxUniform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--job_id', '-i', help='completely arbitrary job id label',type=int, default=0)
-parser.add_argument('--num_inner', '-ni', help='number of samples per outer loop',type=int, default=50)
-parser.add_argument('--num_outer', '-no', help='number of outer loops',type=int, default=10)
+parser.add_argument('--num_samp', '-ns', help='number of samples',type=int, default=100)
 parser.add_argument('--bayes_iter', '-bi', help='bayessian inference interation (0 = use prior, 1 = use first posterior)',type=int, default=0)
 args = vars(parser.parse_args())
 job_id = int(args['job_id'])
-num_inner = int(args['num_inner'])
-num_outer = int(args['num_outer'])
+num_samp = int(args['num_samp'])
 bayes_iter = int(args['bayes_iter'])
 
 print("Bayesian iteration:", bayes_iter)
@@ -52,19 +53,26 @@ L4_rates_itp = CubicSpline(np.arange(0,8+1) * 1/(3*8),
 
 # create prior distribution
 if bayes_iter == 0:
+    '''
+    theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
+    theta[:,1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
+    theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
+    theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
+    theta[:,4] = s_e
+    theta[:,5] = s_i
+    theta[:,6] = het_level
+    theta[:,7] = inp_str (ignored)
+    theta[:,8] = log10[inp_mult]
+    theta[:,9] = log10[J_mult]
+    '''
     # load posterior of phase ring connectivity parameters
-    with open(f'./../notebooks/l23_sel_mod_posterior_7.pkl', 'rb') as handle:
-        full_prior = pickle.load(handle)
-    # with open(f'./../notebooks/l23_patt_posterior_5.pkl', 'rb') as handle:
-    #     posterior = pickle.load(handle)
-        
-    # full_prior = PostTimesBoxUniform(posterior,
-    #     post_low =torch.tensor([ 0.0,-2.0,-4.0,-2.0, 0.01, 0.5, 0.3, 2.0, 0.01],device=device),
-    #     post_high=torch.tensor([ 1.0, 2.0,-0.0, 2.0, 0.06, 1.5, 0.9, 4.0, 0.5],device=device),
-    #     low =torch.tensor([ 0.5, 0.5, 0.5, 0.5],device=device),
-    #     high=torch.tensor([10.0, 3.0, 3.0,20.0],device=device),)
-
-    # full_prior,_,_ = process_prior(full_prior)
+    with open(f'./../notebooks/l23_patt_posterior_3.pkl', 'rb') as handle:
+        prior = pickle.load(handle)
+    full_prior = PostTimesBoxUniform(prior,
+        post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01],device=device),
+        post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.10],device=device),
+        low =torch.tensor([-0.5,-0.5],device=device),
+        high=torch.tensor([ 2.0, 1.5],device=device),)
 else:
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
         full_prior = pickle.load(handle)
@@ -79,9 +87,28 @@ dys = np.abs(ys[:,:,None,None] - ys[None,None,:,:])
 dys[dys > 0.5] = 1 - dys[dys > 0.5]
 dss = np.sqrt(dxs**2 + dys**2).reshape(N**2,N**2)
 
+nbins = 50
+
+idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
+
+freqs = np.fft.fftfreq(N,1/N)
+freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
+decay = 15
+noise_filter = np.ones((N,N,N,N)) * np.exp(-0.5*freqs**2/decay**2)[:,:,None,None]
+
+def gen_noise(rng):
+    noise = rng.normal(size=(N,N,N,N))
+    noise = np.fft.fftn(noise)
+    noise *= noise_filter
+    noise = np.real(np.fft.ifftn(noise))
+    noise -= np.mean(noise)
+    noise /= np.std(noise)
+    return noise.reshape(N**2,N**2)
+
+norm_dist = norm()
+
 # define simulation functions
-def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,
-                    het_lev,N,ne,ni,threshe,threshi,
+def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,kern_i,het_lev,N,ne,ni,threshe,threshi,
                     t0,dt,Nt,tsamp=None,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7):
     '''
     Integrate 2D sheet with AMPA, NMDA, and GABA receptor dynamics.
@@ -112,14 +139,12 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
     rng = np.random.default_rng(0)
     
     if np.isscalar(Jee):
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wee = Jee*kerne.reshape(N**2,N**2)*noise[:,:]
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wei = Jei*kernei.reshape(N**2,N**2)*noise[:,:]
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wie = Jie*kerne.reshape(N**2,N**2)*noise[:,:]
-        noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-        Wii = Jii*kernii.reshape(N**2,N**2)*noise[:,:]
+        gam_dist = gamma(a=1/(het_lev**2),scale=het_lev**2)
+        
+        Wee = Jee*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+        Wei = Jei*kern_i.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+        Wie = Jie*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+        Wii = Jii*kern_i.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
         
         Wee = Wee[:,:,None]
         Wei = Wei[:,:,None]
@@ -133,21 +158,14 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
             xia = xia[:,None]
             xin = xin[:,None]
             xig = xig[:,None]
-        
+            
+        nprm = 1
         resps = np.zeros((2,N**2,1,len(tsamp)))
     else:
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
-        Wee = Jee[None,None,:]*kerne.reshape(N**2,N**2,-1)*noise
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
-        Wei = Jei[None,None,:]*kernei.reshape(N**2,N**2,-1)*noise
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
-        Wie = Jie[None,None,:]*kerne.reshape(N**2,N**2,-1)*noise
-        noise = rng.gamma(shape=1/het_lev[None,None,:]**2,scale=het_lev[None,None,:]**2,
-                          size=(N**2,N**2,len(Jee)))
-        Wii = Jii[None,None,:]*kernii.reshape(N**2,N**2,-1)*noise
+        Wee = Jee[None,None,:]*kern_e.reshape(N**2,N**2,-1)*(1+het_lev[None,None,:]*gen_noise(rng)[:,:,None])
+        Wei = Jei[None,None,:]*kern_i.reshape(N**2,N**2,-1)*(1+het_lev[None,None,:]*gen_noise(rng)[:,:,None])
+        Wie = Jie[None,None,:]*kern_e.reshape(N**2,N**2,-1)*(1+het_lev[None,None,:]*gen_noise(rng)[:,:,None])
+        Wii = Jii[None,None,:]*kern_i.reshape(N**2,N**2,-1)*(1+het_lev[None,None,:]*gen_noise(rng)[:,:,None])
         
         if len(xea.shape) == 1:
             xea = xea[:,None] * np.ones(len(Jee))[None,:]
@@ -156,31 +174,69 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
             xia = xia[:,None] * np.ones(len(Jee))[None,:]
             xin = xin[:,None] * np.ones(len(Jee))[None,:]
             xig = xig[:,None] * np.ones(len(Jee))[None,:]
-            
+        
+        nprm = len(Jee)
         resps = np.zeros((2,N**2,len(Jee),len(tsamp)))
-    
-    for t_idx in range(Nt):
-        ff_inp = inp(t0+t_idx*dt)
+        
+    def dyn_func(t,x,ncell,nprm=1):
+        x = x.reshape((-1,nprm))
+        xea = x[0*ncell:1*ncell,:]
+        xen = x[1*ncell:2*ncell,:]
+        xeg = x[2*ncell:3*ncell,:]
+        xia = x[3*ncell:4*ncell,:]
+        xin = x[4*ncell:5*ncell,:]
+        xig = x[5*ncell:6*ncell,:]
+        
+        ff_inp = inp(t)
+
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
-        if t_idx in tsamp:
-            resps[0,:,:,samp_idx] = ye
-            resps[1,:,:,samp_idx] = yi
-            samp_idx += 1
-        net_ee = np.einsum('ijk,jk->ik',Wee,ye) + ff_inp
-        net_ei = np.einsum('ijk,jk->ik',Wei,yi)
-        net_ie = np.einsum('ijk,jk->ik',Wie,ye) + ff_inp
-        net_ii = np.einsum('ijk,jk->ik',Wii,yi)
-        xea += ((1-frac_n)*net_ee - xea)*dt/ta
-        xen += (frac_n*net_ee - xen)*dt/tn
-        xeg += (net_ei - xeg)*dt/tg
-        xia += ((1-frac_n)*net_ie - xia)*dt/ta
-        xin += (frac_n*net_ie - xin)*dt/tn
-        xig += (net_ii - xig)*dt/tg
         
-    # ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
-    # yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
-    # return xea,xen,xeg,xia,xin,xig,np.concatenate((ye,yi))
+        net_ee = np.einsum('ijk,jk->ik',Wee,ye) + ff_inp[:,None]
+        net_ei = np.einsum('ijk,jk->ik',Wei,yi)
+        net_ie = np.einsum('ijk,jk->ik',Wie,ye) + ff_inp[:,None]
+        net_ii = np.einsum('ijk,jk->ik',Wii,yi)
+        
+        dx = np.zeros_like(x)
+        dx[0*ncell:1*ncell,:] = ((1-frac_n)*net_ee - xea)/ta
+        dx[1*ncell:2*ncell,:] = (frac_n*net_ee - xen)/tn
+        dx[2*ncell:3*ncell,:] = (net_ei - xeg)/tg
+        dx[3*ncell:4*ncell,:] = ((1-frac_n)*net_ie - xia)/ta
+        dx[4*ncell:5*ncell,:] = (frac_n*net_ie - xin)/tn
+        dx[5*ncell:6*ncell,:] = (net_ii - xig)/tg
+        
+        return dx.flatten()
+    
+    x0 = np.concatenate((xea,xen,xeg,xia,xin,xig),axis=0).flatten()
+    
+    start_time = time.process_time()
+    max_time = 60
+    def time_event(t,x,ncell,nprm):
+        int_time = (start_time + max_time) - time.process_time()
+        if int_time < 0: int_time = 0
+        return int_time
+    time_event.terminal = True
+    
+    sol = integrate.solve_ivp(dyn_func,(0,dt*Nt),y0=x0,t_eval=tsamp*dt,args=(N**2,nprm),method='RK23')#,events=time_event)
+    if sol.status != 0:
+        x = np.nan*np.ones((6*N**2*nprm,len(tsamp)))
+    else:
+        x = sol.y
+    x = x.reshape((-1,nprm,len(tsamp)))
+    
+    xea = x[0*N**2:1*N**2,:]
+    xen = x[1*N**2:2*N**2,:]
+    xeg = x[2*N**2:3*N**2,:]
+    xia = x[3*N**2:4*N**2,:]
+    xin = x[4*N**2:5*N**2,:]
+    xig = x[5*N**2:6*N**2,:]
+    
+    ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
+    yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
+    
+    resps[0] = ye
+    resps[1] = yi
+    
     return resps
 
 def get_J(theta):
@@ -203,52 +259,40 @@ def get_J(theta):
 
 def get_sheet_resps(theta,N):
     Jee,Jei,Jie,Jii = get_J(theta)
-    Jee *= theta[:,5]*theta[:,12]
-    Jei *= theta[:,5]*theta[:,12]
-    Jie *= theta[:,5]*theta[:,12]
-    Jii *= theta[:,5]*theta[:,12]
+    Jee *= 10**theta[:,9]
+    Jei *= 10**theta[:,9]
+    Jie *= 10**theta[:,9]
+    Jii *= 10**theta[:,9]
     
     thresh = 0
     nori = 8
-    nphs = 8
+    nphs = 16
     nint = 5
     nwrm = 12 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     
-    s_e = theta[:,10]*theta[:,4]*2
-    s_ei = s_e * theta[:,5]
-    s_ii = s_ei * theta[:,6]
-    kerne = np.exp(-(dss[:,:,None]/(s_e[None,None,:]))**theta[None,None,:,7])
-    norm = kerne.sum(axis=1).mean(axis=0)
-    kerne /= norm[None,None,:]
-    kernei = np.exp(-(dss[:,:,None]/(s_ei[None,None,:]))**theta[None,None,:,7])
-    norm = kernei.sum(axis=1).mean(axis=0)
-    kernei /= norm[None,None,:]
-    kernii = np.exp(-(dss[:,:,None]/(s_ii[None,None,:]))**theta[None,None,:,7])
-    norm = kernii.sum(axis=1).mean(axis=0)
-    kernii /= norm[None,None,:]
-    
-    inp_mult = theta[:,9].numpy()
-    
     tsamp = nwrm-1 + np.arange(0,nphs) * nint
     resps = np.zeros((theta.shape[0],2,N**2,nori,nphs))
-    for ori_idx in range(nori):
-        def ff_inp(t):
-            return inp_mult[None,:] * L4_rates_itp(t)[:,ori_idx,None]
-        # xea,xen,xeg,xia,xin,xig,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-        #                          np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-        #                          ff_inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,theta[:,11]*theta[:,8],N,2,2,
-        #                          thresh,thresh,0,dt,nwrm)
-        resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-                                 np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-                                 ff_inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,theta[:,11]*theta[:,8],N,2,2,
-                                 thresh,thresh,0,dt,nwrm+nint*nphs,tsamp)
-        resps[:,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
-        # for phs_idx in range(nphs-1):
-        #     xea,xen,xeg,xia,xin,xig,resp = integrate_sheet(xea,xen,xeg,xia,xin,xig,
-        #                          ff_inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,theta[:,11]*theta[:,8],N,2,2,
-        #                          thresh,thresh,0,dt,nwrm)
-        #     resps[:,:,:,ori_idx,phs_idx+1] = resp.T.reshape(theta.shape[0],2,N**2)
+    
+    for prm_idx in range(theta.shape[0]):
+        kern_e = np.exp(-(dss/(theta[prm_idx,4].item()))**2)
+        norm = kern_e.sum(axis=1).mean(axis=0)
+        kern_e /= norm
+        
+        kern_i = np.exp(-(dss/(theta[prm_idx,5].item()))**2)
+        norm = kern_i.sum(axis=1).mean(axis=0)
+        kern_i /= norm
+        
+        for ori_idx in range(nori):
+            def ff_inp(t):
+                return 10**theta[prm_idx,8].item() * L4_rates_itp(t)[:,ori_idx,None]
+            resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
+                                    np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
+                                    ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
+                                    Jie[prm_idx].item(),Jii[prm_idx].item(),
+                                    kern_e,kern_i,theta[prm_idx,6].item(),N,2,2,
+                                    thresh,thresh,0,dt,nwrm,tsamp)
+            resps[:,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
 
@@ -259,19 +303,22 @@ def sheet_simulator(theta):
     theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
     theta[:,4] = s_e
-    theta[:,5] = s_ei / s_e
-    theta[:,6] = s_ii / s_ei
-    theta[:,7] = p_ker
-    theta[:,8] = het_level
-    theta[:,9] = inp_mult
-    theta[:,10] = s_mult
-    theta[:,11] = het_mult
-    theta[:,12] = J_mult
+    theta[:,5] = s_i
+    theta[:,6] = het_level
+    theta[:,7] = inp_str (ignored)
+    theta[:,8] = log10[inp_mult]
+    theta[:,9] = log10[J_mult]
     
-    returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr,mu_mm]
+    returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr,mu_mm,pwd,mod,corr_min,corr_max,freq,dim]
     os = excitatory orientation selectivity
     mr = excitatory modulation ratio
     mm = input-output mismatch
+    pwd = pinwheel density
+    mod = excitatory response modularity
+    corr_min = excitatory response correlation first minimum
+    corr_max = excitatory response correlation first maximum after the minimum
+    freq = spatial frequency corresponding to corr_max
+    dim = excitatory response dimensionality
     '''
     
     resps = get_sheet_resps(theta,N)
@@ -291,7 +338,46 @@ def sheet_simulator(theta):
     pwd = af.calc_pinwheel_density_from_raps(np.arange(raps.shape[-1])[None,:]/N,
                                              raps,continuous=True)
     
-    out = torch.zeros((theta.shape[0],12),dtype=theta.dtype).to(theta.device)
+    resp_z = resps[:,0,:,:,:].reshape(theta.shape[0],N**2,-1)
+    npatt = resp_z.shape[-1]
+    resp_z = resp_z - np.mean(resp_z,axis=-1,keepdims=True)
+    resp_z = resp_z / np.std(resp_z,axis=-1,keepdims=True)
+    corr = np.zeros((theta.shape[0],N**2,N**2))
+    for i in range(npatt):
+        corr += resp_z[:,None,:,i] * resp_z[:,:,None,i]
+    corr /= npatt
+    
+    corr_curve = np.zeros((theta.shape[0],nbins))
+    for i in range(nbins):
+        corr_curve[:,i] = np.mean(corr[:,idxs == i+1],axis=-1)
+    arg_mins = np.zeros(theta.shape[0],dtype=int)
+    for i in range(theta.shape[0]):
+        try:
+            arg_mins[i] = argrelmin(corr_curve[i])[0][0]
+        except:
+            arg_mins[i] = np.argmin(corr_curve[i])
+    corr_mins = np.array([corr_curve[i,arg_mins[i]] for i in range(theta.shape[0])])
+    arg_maxs = np.zeros(theta.shape[0],dtype=int)
+    for i in range(theta.shape[0]):
+        try:
+            loc_maxs = argrelmax(corr_curve[i])[0]
+            arg_maxs[i] = loc_maxs[0]
+            if arg_maxs[i] < arg_mins[i]:
+                arg_maxs[i] = loc_maxs[1]
+        except:
+            arg_maxs[i] = np.argmax(corr_curve[i,arg_mins[i]:]) + arg_mins[i]
+    corr_maxs = np.array([corr_curve[i,arg_maxs[i]] for i in range(theta.shape[0])])
+    mod = corr_maxs - corr_mins
+    
+    dim = np.zeros(theta.shape[0])
+    for i in range(theta.shape[0]):
+        try:
+            dim[i] = np.trace(corr[i,:,:])**2 / np.trace(corr[i,:,:] @ corr[i,:,:])
+        except:
+            dim[i] = npatt
+    dim /= npatt
+    
+    out = torch.zeros((theta.shape[0],17),dtype=theta.dtype).to(theta.device)
     out[:,0:3] = torch.tensor(np.quantile(os,[0.25,0.50,0.75],axis=1).T,dtype=theta.dtype).to(theta.device)
     out[:,3] = torch.tensor(np.mean(os,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,4] = torch.tensor(np.std(os,axis=1),dtype=theta.dtype).to(theta.device)
@@ -300,36 +386,35 @@ def sheet_simulator(theta):
     out[:,9] = torch.tensor(np.std(mr,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,10] = torch.tensor(np.mean(mm,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,11] = torch.tensor(pwd,dtype=theta.dtype).to(theta.device)
+    out[:,12] = torch.tensor(mod,dtype=theta.dtype).to(theta.device)
+    out[:,13] = torch.tensor(corr_mins,dtype=theta.dtype).to(theta.device)
+    out[:,14] = torch.tensor(corr_maxs,dtype=theta.dtype).to(theta.device)
+    out[:,15] = torch.tensor(arg_maxs,dtype=theta.dtype).to(theta.device)
+    out[:,16] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4))
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
-start = time.process_time()
-
-theta = torch.zeros((0,13),dtype=torch.float32,device=device)
-x = torch.zeros((0,12),dtype=torch.float32,device=device)
-for outer_idx in range(num_outer):
-    print(f'Outer loop {outer_idx+1}/{num_outer}')
-    start_outer = time.process_time()
-
+theta = torch.zeros((0,10),dtype=torch.float32,device=device)
+x = torch.zeros((0,17),dtype=torch.float32,device=device)
+while thetas.shape[0] < num_samp:
+    this_samps = min(3, num_samp - thetas.shape[0])
+    
+    start = time.process_time()
     # sample from prior
-    theta_samp = full_prior.sample((num_inner,))
-
+    theta = full_prior.sample((this_samps,))
     # simulate sheet
-    x_samp = sheet_simulator(theta_samp)
+    x = sheet_simulator(theta)
 
-    # append results
-    theta = torch.cat((theta,theta_samp),dim=0)
-    x = torch.cat((x,x_samp),dim=0)
+    thetas = torch.cat([thetas,theta],dim=0)
+    xs = torch.cat([xs,x],dim=0)
 
-    print(f'  Outer loop took',time.process_time() - start_outer,'s\n')
+    print(f'Simulating samples took',time.process_time() - start,'s\n')
 
-print(f'Simulating samples took',time.process_time() - start,'s\n')
-
-# save results
-with open(res_file, 'wb') as handle:
-    pickle.dump({
-        'theta': theta,
-        'x': x,
-    }, handle)
+    # save results
+    with open(res_file, 'wb') as handle:
+        pickle.dump({
+            'theta': thetas,
+            'x': xs,
+        }, handle)
