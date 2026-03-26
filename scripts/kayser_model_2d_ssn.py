@@ -426,18 +426,18 @@ class Model:
         max_norm_wex = max_norm_wex[max_norm_wex > 1e-5 / np.mean(np.max(self.wex,axis=1))]
         max_norm_wix = self.wix/np.max(self.wix,axis=1,keepdims=True)
         max_norm_wix = max_norm_wix[max_norm_wix > 1e-5 / np.mean(np.max(self.wix,axis=1))]
-        new_thresh = np.quantile(np.concatenate((max_norm_wex,max_norm_wix)),0.6)
+        new_thresh = np.quantile(np.concatenate((max_norm_wex,max_norm_wix)),0.57)
         # new_thresh = np.quantile(max_norm_wex,0.6)
         self.max_prop_thresh += self.a_avg * (new_thresh - self.max_prop_thresh)
         # print("new threshold:",self.max_prop_thresh)
         
         # implement pruning by shrinking small weights
         thresh = np.max(self.wex,axis=1,keepdims=True) * self.max_prop_thresh
-        self.wex *= np.heaviside(self.wex,0)*(0.87+0.13*np.heaviside(self.wex-thresh,0))
+        self.wex *= np.heaviside(self.wex,0)*(0.88+0.12*np.heaviside(self.wex-thresh,0))
         self.wex *= self.wff_sum / np.sum(self.wex,axis=1,keepdims=True)
         
         thresh = np.max(self.wix,axis=1,keepdims=True) * self.max_prop_thresh
-        self.wix *= np.heaviside(self.wix,0)*(0.87+0.13*np.heaviside(self.wix-thresh,0))
+        self.wix *= np.heaviside(self.wix,0)*(0.88+0.12*np.heaviside(self.wix-thresh,0))
         self.wix *= self.wff_sum / np.sum(self.wix,axis=1,keepdims=True)
         
     # update weights with collected changes, then clip and normalize weights
