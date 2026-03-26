@@ -285,13 +285,13 @@ def get_sheet_resps(theta,N):
         
         for ori_idx in range(nori):
             def ff_inp(t):
-                return 10**theta[prm_idx,8].item() * L4_rates_itp(t)[:,ori_idx,None]
+                return 10**theta[prm_idx,8].item() * L4_rates_itp(t)[:,ori_idx]
             resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_e,kern_i,theta[prm_idx,6].item(),N,2,2,
-                                    thresh,thresh,0,dt,nwrm,tsamp)
+                                    thresh,thresh,0,dt,nwrm+nint*nphs,tsamp)
             resps[:,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
@@ -396,8 +396,8 @@ def sheet_simulator(theta):
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
-theta = torch.zeros((0,10),dtype=torch.float32,device=device)
-x = torch.zeros((0,17),dtype=torch.float32,device=device)
+thetas = torch.zeros((0,10),dtype=torch.float32,device=device)
+xs = torch.zeros((0,17),dtype=torch.float32,device=device)
 while thetas.shape[0] < num_samp:
     this_samps = min(3, num_samp - thetas.shape[0])
     
