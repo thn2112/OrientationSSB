@@ -44,12 +44,12 @@ res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
 
 # create prior distribution
 if bayes_iter == 0:
-    # prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01],device=device),
-    #                    high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 ],device=device),)
+    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01],device=device),
+                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 ],device=device),)
 
     # prior,_,_ = process_prior(prior)
-    with open(f'./../notebooks/l23_patt_posterior_2.pkl','rb') as handle:
-        prior = pickle.load(handle)
+    # with open(f'./../notebooks/l23_patt_posterior_2.pkl','rb') as handle:
+    #    prior = pickle.load(handle)
 else:
     with open(f'./../notebooks/l23_patt_gamma_posterior_{bayes_iter:d}.pkl','rb') as handle:
         prior = pickle.load(handle)
