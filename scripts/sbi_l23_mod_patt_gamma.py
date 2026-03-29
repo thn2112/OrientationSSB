@@ -369,7 +369,7 @@ while thetas.shape[0] < num_samp:
     
     start = time.process_time()
     # sample from prior
-    theta = prior.sample((this_samps,))
+    theta = prior.sample((this_samps,))[:,:7]
     # simulate sheet
     x = sheet_simulator(theta)
 
