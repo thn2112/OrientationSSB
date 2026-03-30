@@ -212,8 +212,8 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
     return xea,xen,xeg,xia,xin,xig,np.concatenate((ye,yi))
 
 def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
-    gam_map_flat = np.concatenate((gam_map.flatten(),gam_map.flatten()))
-    ori_map_flat = np.concatenate((ori_map.flatten(),ori_map.flatten()))
+    gam_map_flat = gam_map.flatten()
+    ori_map_flat = ori_map.flatten()
     
     c = 100
     thresh = c
@@ -225,7 +225,7 @@ def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
         def ff_inp(t):
             return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
         for phs_idx in range(n_phs):
-            resps[:,:,ori_idx,phs_idx] = (np.fmax(0,ff_inp(phs_idx/n_phs / 3)-thresh)**2).reshape(2,N**2)
+            resps[:,:,ori_idx,phs_idx] = (np.fmax(0,ff_inp(phs_idx/n_phs / 3)-thresh)**2).reshape(1,N**2)
             
     return resps
 
