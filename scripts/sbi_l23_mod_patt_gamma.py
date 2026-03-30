@@ -56,8 +56,8 @@ if bayes_iter == 0:
     theta[:,8] = base_i
     '''
     
-    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01],device=device),
-                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 ],device=device),)
+    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
+                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),)
 
     # prior,_,_ = process_prior(prior)
     # with open(f'./../notebooks/l23_patt_posterior_2.pkl','rb') as handle:
