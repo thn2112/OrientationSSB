@@ -265,8 +265,8 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     norm = kern_b.sum(axis=1).mean(axis=0)
     kern_b /= norm
     
-    gam_map_flat = np.concatenate((gam_map.flatten(),gam_map.flatten()))
-    ori_map_flat = np.concatenate((ori_map.flatten(),ori_map.flatten()))
+    gam_map_flat = gam_map.flatten()
+    ori_map_flat = ori_map.flatten()
     
     tsamp = nwrm-1 + np.arange(0,n_phs) * n_int
     resps = np.zeros((2,N**2,n_ori,n_phs))
