@@ -96,13 +96,14 @@ gam_map = gam_os_itp(np.abs(omap))
 sig2 = 0.00095
 
 rf_sct_scale = 0.8
-pol_scale = 2.0
+pol_scale = 10
 L_mm = N/11
 mag_fact = 0.02
-L_deg = L_mm / np.sqrt(mag_fact)
+# L_deg = L_mm / np.sqrt(mag_fact)
+L_deg = 5.99/0.06
 grate_freq = 0.06
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True)
+sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='highpass')
 
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
 dxs = np.abs(xs[:,:,None,None] - xs[None,None,:,:])
