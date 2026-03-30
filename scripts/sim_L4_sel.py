@@ -115,7 +115,7 @@ mag_fact = 0.02
 L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=False,EI_pol_corr=0.3,seed=seed)
+sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,seed=seed)
 
 # Compute distance matrix for connectivity kernel
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
@@ -164,15 +164,13 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
         xig = x[5*ncell:6*ncell]
         
         ff_inp = inp(t)
-        ff_inp_e = ff_inp[:ncell]
-        ff_inp_i = ff_inp[ncell:]
 
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
         
-        net_ee = Wee@ye + ff_inp_e
+        net_ee = Wee@ye + ff_inp
         net_ei = Wei@yi
-        net_ie = Wie@ye + ff_inp_i
+        net_ie = Wie@ye + ff_inp
         net_ii = Wii@yi
         
         dx = np.zeros_like(x)
@@ -223,9 +221,7 @@ def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
     
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
-        phs_map_flat = np.concatenate(
-            (mf.gen_abs_phs_map(N,rf_sct_map[0],pol_map[0],ori,grate_freq,L_deg).flatten(),
-             mf.gen_abs_phs_map(N,rf_sct_map[1],pol_map[1],ori,grate_freq,L_deg).flatten()))
+        phs_map_flat = mf.gen_abs_phs_map(N,rf_sct_map,pol_map,ori,grate_freq,L_deg).flatten()
         def ff_inp(t):
             return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
         for phs_idx in range(n_phs):
@@ -275,9 +271,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     tsamp = nwrm-1 + np.arange(0,n_phs) * n_int
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
-        phs_map_flat = np.concatenate(
-            (mf.gen_abs_phs_map(N,rf_sct_map[0],pol_map[0],ori,grate_freq,L_deg).flatten(),
-             mf.gen_abs_phs_map(N,rf_sct_map[1],pol_map[1],ori,grate_freq,L_deg).flatten()))
+        phs_map_flat = mf.gen_abs_phs_map(N,rf_sct_map,pol_map,ori,grate_freq,L_deg).flatten()
         if static:
             for phs_idx,phs in enumerate(np.linspace(0,2*np.pi,n_phs,endpoint=False)):
                 def ff_inp(t):
