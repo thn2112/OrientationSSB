@@ -44,8 +44,20 @@ res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
 
 # create prior distribution
 if bayes_iter == 0:
-    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01],device=device),
-                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 ],device=device),)
+    '''
+    theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
+    theta[:,1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
+    theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
+    theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
+    theta[:,4] = s_e
+    theta[:,5] = s_i
+    theta[:,6] = het_level
+    theta[:,7] = base_e
+    theta[:,8] = base_i
+    '''
+    
+    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01],device=device),
+                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 ],device=device),)
 
     # prior,_,_ = process_prior(prior)
     # with open(f'./../notebooks/l23_patt_posterior_2.pkl','rb') as handle:
@@ -254,7 +266,6 @@ def get_J(theta):
 def get_sheet_resps(theta,N):
     Jee,Jei,Jie,Jii = get_J(theta)
     
-    thresh = 0
     nint = 3
     nwrm = 15 * nint
     dt = 0.01 / nint
@@ -270,6 +281,9 @@ def get_sheet_resps(theta,N):
         norm = kern_i.sum(axis=1).mean(axis=0)
         kern_i /= norm
         
+        thresh_e = -theta[prm_idx,7].item()
+        thresh_i = -theta[prm_idx,8].item()
+        
         for patt_idx,patt in enumerate(patts):
             def ff_inp(t):
                 return patt
@@ -278,7 +292,7 @@ def get_sheet_resps(theta,N):
                                     ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_e,kern_i,theta[prm_idx,6].item(),N,2,2,
-                                    thresh,thresh,0,dt,nwrm,tsamp)
+                                    thresh_e,thresh_i,0,dt,nwrm,tsamp)
             resps[prm_idx,:,:,patt_idx] = resp.transpose((2,0,1,3))[:,:,:,0]
         
     return resps
@@ -292,7 +306,8 @@ def sheet_simulator(theta):
     theta[:,4] = s_e
     theta[:,5] = s_i
     theta[:,6] = het_level
-    theta[:,7] = inp_str
+    theta[:,7] = base_e
+    theta[:,8] = base_i
     
     returns: [mod,corr_min,corr_max,freq,dim,min_r]
     mod = excitatory response modularity
@@ -361,7 +376,7 @@ def sheet_simulator(theta):
 
 start = time.process_time()
 
-thetas = torch.zeros((0,7),dtype=torch.float32,device=device)
+thetas = torch.zeros((0,9),dtype=torch.float32,device=device)
 xs = torch.zeros((0,6),dtype=torch.float32,device=device)
 
 while thetas.shape[0] < num_samp:
@@ -369,7 +384,7 @@ while thetas.shape[0] < num_samp:
     
     start = time.process_time()
     # sample from prior
-    theta = prior.sample((this_samps,))[:,:7]
+    theta = prior.sample((this_samps,))[:,:9]
     # simulate sheet
     x = sheet_simulator(theta)
 
