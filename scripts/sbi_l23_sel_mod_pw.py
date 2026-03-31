@@ -61,15 +61,16 @@ if bayes_iter == 0:
     theta[:,4] = s_e
     theta[:,5] = s_i
     theta[:,6] = het_level
-    theta[:,7] = log10[inp_mult]
-    theta[:,8] = log10[J_mult]
+    theta[:,7] = base_e
+    theta[:,8] = base_i
+    theta[:,9] = log10[J_mult]
     '''
     # load posterior of phase ring connectivity parameters
-    with open(f'./../notebooks/l23_patt_gamma_posterior_3.pkl', 'rb') as handle:
+    with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
         prior = pickle.load(handle)
     full_prior = PostTimesBoxUniform(prior,
-        post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01],device=device),
-        post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 ],device=device),
+        post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
+        post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
         low =torch.tensor([-0.5,-0.5],device=device),
         high=torch.tensor([ 0.5, 0.5],device=device),)
 else:
@@ -263,7 +264,6 @@ def get_sheet_resps(theta,N):
     Jie *= 10**theta[:,9]
     Jii *= 10**theta[:,9]
     
-    thresh = 0
     nori = 8
     nphs = 16
     nint = 5
@@ -282,15 +282,18 @@ def get_sheet_resps(theta,N):
         norm = kern_i.sum(axis=1).mean(axis=0)
         kern_i /= norm
         
+        thresh_e = theta[prm_idx,7].item()
+        thresh_i = theta[prm_idx,8].item()
+        
         for ori_idx in range(nori):
             def ff_inp(t):
-                return 10**theta[prm_idx,8].item() * L4_rates_itp(t)[:,ori_idx]
+                return L4_rates_itp(t)[:,ori_idx]
             resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_e,kern_i,theta[prm_idx,6].item(),N,2,2,
-                                    thresh,thresh,0,dt,nwrm+nint*nphs,tsamp)
+                                    thresh_e,thresh_i,0,dt,nwrm+nint*nphs,tsamp)
             resps[:,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
@@ -304,8 +307,8 @@ def sheet_simulator(theta):
     theta[:,4] = s_e
     theta[:,5] = s_i
     theta[:,6] = het_level
-    theta[:,7] = inp_str (ignored)
-    theta[:,8] = log10[inp_mult]
+    theta[:,7] = base_e
+    theta[:,8] = base_i
     theta[:,9] = log10[J_mult]
     
     returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr,mu_mm,pwd,mod,corr_min,corr_max,freq,dim]
