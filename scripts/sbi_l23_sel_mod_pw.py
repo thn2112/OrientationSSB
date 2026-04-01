@@ -71,8 +71,8 @@ if bayes_iter == 0:
     full_prior = PostTimesBoxUniform(prior,
         post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
         post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
-        low =torch.tensor([-0.5,-0.5],device=device),
-        high=torch.tensor([ 0.5, 0.5],device=device),)
+        low =torch.tensor([-0.5],device=device),
+        high=torch.tensor([ 0.5],device=device),)
 else:
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
         full_prior = pickle.load(handle)
@@ -282,8 +282,8 @@ def get_sheet_resps(theta,N):
         norm = kern_i.sum(axis=1).mean(axis=0)
         kern_i /= norm
         
-        thresh_e = theta[prm_idx,7].item()
-        thresh_i = theta[prm_idx,8].item()
+        thresh_e = -theta[prm_idx,7].item()
+        thresh_i = -theta[prm_idx,8].item()
         
         for ori_idx in range(nori):
             def ff_inp(t):
