@@ -294,7 +294,7 @@ def get_sheet_resps(theta,N):
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_e,kern_i,theta[prm_idx,6].item(),N,2,2,
                                     thresh_e,thresh_i,0,dt,nwrm+nint*nphs,tsamp)
-            resps[:,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
+            resps[prm_idx,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
 
