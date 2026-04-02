@@ -337,6 +337,12 @@ def sheet_simulator(theta):
     mm[mm > 90] = 180 - mm[mm > 90]
     
     _,raps = af.get_fps(opm.reshape(-1,N,N))
+    freqs = np.zeros(theta.shape[0],dtype=int)
+    for i in range(theta.shape[0]):
+        try:
+            freqs[i] = np.argmax(raps[i])
+        except:
+            freqs[i] = np.nan
     pwd = af.calc_pinwheel_density_from_raps(np.arange(raps.shape[-1])[None,:]/N,
                                              raps,continuous=True)
     
@@ -391,7 +397,7 @@ def sheet_simulator(theta):
     out[:,12] = torch.tensor(mod,dtype=theta.dtype).to(theta.device)
     out[:,13] = torch.tensor(corr_mins,dtype=theta.dtype).to(theta.device)
     out[:,14] = torch.tensor(corr_maxs,dtype=theta.dtype).to(theta.device)
-    out[:,15] = torch.tensor(arg_maxs,dtype=theta.dtype).to(theta.device)
+    out[:,15] = torch.tensor(freqs,dtype=theta.dtype).to(theta.device)
     out[:,16] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4))
