@@ -12,6 +12,8 @@ import time
 import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy import integrate
+from scipy.signal import argrelmin,argrelmax
+from scipy.stats import norm,gamma
 
 import analyze_func as af
 
@@ -26,7 +28,6 @@ parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper 
 parser.add_argument('--map', '-m', help='whether to switch to a different L4 map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
-parser.add_argument('--saveweights', '-w', help='save weights or not',type=bool, default=False)
 args = vars(parser.parse_args())
 n_ori = int(args['n_ori'])
 n_phs = int(args['n_phs'])
@@ -38,7 +39,6 @@ add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 static = args['static']
 saverates = args['saverates']
-saveweights = args['saveweights']
 
 N = 60
 
@@ -102,6 +102,26 @@ dxs[dxs > 0.5] = 1 - dxs[dxs > 0.5]
 dys = np.abs(ys[:,:,None,None] - ys[None,None,:,:])
 dys[dys > 0.5] = 1 - dys[dys > 0.5]
 dss = np.sqrt(dxs**2 + dys**2).reshape(N**2,N**2)
+
+nbins = 50
+
+idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
+
+freqs = np.fft.fftfreq(N,1/N)
+freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
+decay = 15
+noise_filter = np.ones((N,N,N,N)) * np.exp(-0.5*freqs**2/decay**2)[:,:,None,None]
+
+def gen_noise(rng):
+    noise = rng.normal(size=(N,N,N,N))
+    noise = np.fft.fftn(noise)
+    noise *= noise_filter
+    noise = np.real(np.fft.ifftn(noise))
+    noise -= np.mean(noise)
+    noise /= np.std(noise)
+    return noise.reshape(N**2,N**2)
+
+norm_dist = norm()
     
 # define L4 rate interpolation function after L4 to L2/3 scattering
 L4_rates_itp = CubicSpline(np.arange(0,n_phs+1) * 1/(3*n_phs),
@@ -109,7 +129,7 @@ L4_rates_itp = CubicSpline(np.arange(0,n_phs+1) * 1/(3*n_phs),
                            axis=-1,bc_type='periodic')
 
 # define simulation functions
-def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,
+def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,kern_i,
                     het_lev,N,ne,ni,threshe,threshi,
                     t0,dt,Nt,tsamp=None,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7):
     '''
@@ -117,7 +137,7 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
     xe0, xi0: initial excitatory and inhibitory activity
     inp: input function, takes time t and returns input at that time
     Jee, Jei, Jie, Jii: connectivity strengths per connection type
-    kern: connectivity kernel for the sheet
+    kern_e, kern_i: connectivity kernels for excitatory and inhibitory connections
     ne, ni: rate activation exponents for excitatory and inhibitory neurons
     threshe, threshi: activation thresholds for excitatory and inhibitory neurons
     t0: initial time
@@ -139,15 +159,12 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
     xig = xig0.copy()
     
     rng = np.random.default_rng(seed)
+    gam_dist = gamma(a=1/(het_lev**2),scale=het_lev**2)
     
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wee = Jee*kerne.reshape(N**2,N**2)*noise
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wei = Jei*kernei.reshape(N**2,N**2)*noise
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wie = Jie*kerne.reshape(N**2,N**2)*noise
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wii = Jii*kernii.reshape(N**2,N**2)*noise
+    Wee = Jee*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+    Wei = Jei*kern_i.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+    Wie = Jie*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
+    Wii = Jii*kern_i.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
     
     if len(xea.shape) == 1:
         xea = xea
@@ -158,25 +175,6 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
         xig = xig
     
     resps = np.zeros((2,N**2,len(tsamp)))
-    
-    # for t_idx in range(Nt):
-    #     ff_inp = inp(t0+t_idx*dt)
-    #     ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
-    #     yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
-    #     if t_idx in tsamp:
-    #         resps[0,:,samp_idx] = ye
-    #         resps[1,:,samp_idx] = yi
-    #         samp_idx += 1
-    #     net_ee = Wee@ye + ff_inp
-    #     net_ei = Wei@yi
-    #     net_ie = Wie@ye + ff_inp
-    #     net_ii = Wii@yi
-    #     xea += ((1-frac_n)*net_ee - xea)*dt/ta
-    #     xen += (frac_n*net_ee - xen)*dt/tn
-    #     xeg += (net_ei - xeg)*dt/tg
-    #     xia += ((1-frac_n)*net_ie - xia)*dt/ta
-    #     xin += (frac_n*net_ie - xin)*dt/tn
-    #     xig += (net_ii - xig)*dt/tg
         
     def dyn_func(t,x,ncell):
         xea = x[0*ncell:1*ncell]
@@ -240,67 +238,55 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kerne,kern
 
 def get_sheet_resps(params,N):
     '''
-    params[0] = log10[|Jee]]
-    params[1] = log10[|Jei]]
-    params[2] = log10[|Jie]]
-    params[3] = log10[|Jii]]
+    params[0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
+    params[1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
+    params[2] = (log10[|Jei|] + log10[|Jie|]) / 2
+    params[3] = (log10[|Jei|] - log10[|Jie|]) / 2
     params[4] = s_e
-    params[5] = s_ei / s_e
-    params[6] = s_ii / s_ei
-    params[7] = p_ker
-    params[8] = het_level
-    params[9] = inp_mult
-    
-    returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr]
-    os = excitatory orientation selectivity
-    mr = excitatory modulation ratio
+    params[5] = s_i
+    params[6] = het_level
+    params[7] = base_e
+    params[8] = base_i
     '''
     Jee,Jei,Jie,Jii = 10**params[:4]
     Jei *= -1
     Jii *= -1
     
-    thresh = 0
     nori = n_ori
     nphs = n_phs
     nint = 5
     nwrm = 4 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     
-    s_e = params[4]
-    s_ei = s_e * params[5]
-    s_ii = s_ei * params[6]
-    kerne = np.exp(-(dss/s_e)**params[None,None,7])
-    norm = kerne.sum(axis=1).mean(axis=0)
-    kerne /= norm
-    kernei = np.exp(-(dss/s_ei)**params[None,None,7])
-    norm = kernei.sum(axis=1).mean(axis=0)
-    kernei /= norm
-    kernii = np.exp(-(dss/s_ii)**params[None,None,7])
-    norm = kernii.sum(axis=1).mean(axis=0)
-    kernii /= norm
+    kern_e = np.exp(-(dss/params[4])**2)
+    norm = kern_e.sum(axis=1).mean(axis=0)
+    kern_e /= norm
     
-    inp_mult = params[9]
+    kern_i = np.exp(-(dss/params[5])**2)
+    norm = kern_i.sum(axis=1).mean(axis=0)
+    kern_i /= norm
+    
+    thresh_e = -params[7]
+    thresh_i = -params[8]
     
     tsamp = nwrm-1 + np.arange(0,nphs) * nint
     resps = np.zeros((2,N**2,nori,nphs))
     for ori_idx in range(nori):
         if static:
             for phs_idx,phs in enumerate(np.linspace(0,2*np.pi,n_phs,endpoint=False)):
-                print(ori_idx,phs_idx)
                 def ff_inp(t):
-                    return inp_mult * L4_rates_itp(phs/(2*np.pi*3))[:,ori_idx]
+                    return L4_rates_itp(phs/(2*np.pi*3))[:,ori_idx]
                 resps[:,:,ori_idx,phs_idx] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                         np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-                                        ff_inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,params[8],N,2,2,
-                                        thresh,thresh,0,dt,nwrm/2,tsamp[0:1]/2)[:,:,-1]
+                                        ff_inp,Jee,Jei,Jie,Jii,kern_e,kern_i,params[6],N,2,2,
+                                        thresh_e,thresh_i,0,dt,nwrm/2,tsamp[0:1]/2)[:,:,-1]
         else:
             def ff_inp(t):
-                return inp_mult * L4_rates_itp(t)[:,ori_idx]
+                return L4_rates_itp(t)[:,ori_idx]
             resps[:,:,ori_idx,:] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-                                    ff_inp,Jee,Jei,Jie,Jii,kerne,kernei,kernii,params[8],N,2,2,
-                                    thresh,thresh,0,dt,nwrm+nint*nphs,tsamp)
-        
+                                    ff_inp,Jee,Jei,Jie,Jii,kern_e,kern_i,params[6],N,2,2,
+                                    thresh_e,thresh_i,0,dt,nwrm+nint*nphs,tsamp)
     return resps
 
 # Integrate to get firing rates
@@ -312,36 +298,6 @@ print('Simulating rate dynamics took',time.process_time() - start,'s\n')
 
 if saverates:
     res_dict['L23_rates'] = L23_rates
-if saveweights:
-    Jee,Jei,Jie,Jii = 10**params[:4]
-    
-    s_e = params[4]
-    s_ei = s_e * params[5]
-    s_ii = s_ei * params[6]
-    kerne = np.exp(-(dss/s_e)**params[None,None,7])
-    norm = kerne.sum(axis=1).mean(axis=0)
-    kerne /= norm
-    kernei = np.exp(-(dss/s_ei)**params[None,None,7])
-    norm = kernei.sum(axis=1).mean(axis=0)
-    kernei /= norm
-    kernii = np.exp(-(dss/s_ii)**params[None,None,7])
-    norm = kernii.sum(axis=1).mean(axis=0)
-    kernii /= norm
-    
-    het_lev = params[8]
-    
-    rng = np.random.default_rng(seed)
-    
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wee = Jee*kerne.reshape(N**2,N**2)*noise
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wei = Jei*kernei.reshape(N**2,N**2)*noise
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wie = Jie*kerne.reshape(N**2,N**2)*noise
-    noise = rng.gamma(shape=1/het_lev**2,scale=het_lev**2,size=(N**2,N**2))
-    Wii = Jii*kernii.reshape(N**2,N**2)*noise
-    
-    res_dict['weights'] = (Wee,Wei,Wie,Wii)
 
 # Calculate CV of inputs and responses
 L23_rate_r0 = np.mean(L23_rates,(-2,-1))

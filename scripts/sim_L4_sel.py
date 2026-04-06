@@ -92,7 +92,7 @@ kl2 = 2
 
 if static:
     def elong_inp(gam,ori,phs):
-        return 1 + 0.4*np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
+        return 1 + 0.6*np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
 else:
     def elong_inp(gam,ori,phs):
         return 1 + np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
@@ -109,13 +109,14 @@ gam_map = gam_os_itp(np.abs(L4_inp_opm))
 sig2 = 0.00095
 
 rf_sct_scale = 0.8
-pol_scale = 2.0
+pol_scale = 10#2.0
 L_mm = N/11
 mag_fact = 0.02
-L_deg = L_mm / np.sqrt(mag_fact)
+# L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
+L_deg = 5.9 / grate_freq
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,seed=seed)
+sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='highpass',seed=seed)
 
 # Compute distance matrix for connectivity kernel
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
