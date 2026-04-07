@@ -55,27 +55,18 @@ if static:
     res_dir = res_dir + 'static_'
     l4_dir = l4_dir + 'static_'
 
-if args['map'] is None:
-    res_file = res_dir
-    file_dir = res_dir
-else:
-    res_file = res_dir + '{:s}_'.format(args['map'])
-    file_dir = res_dir + '{:s}_'.format(args['map'])
+if args['map'] is not None:
+    res_dir = res_dir + '{:s}_'.format(args['map'])
     L4_dir = l4_dir + '{:s}_'.format(args['map'])
     
 if add_phase:
-    res_file = res_file + 'phase_'
-    file_dir = res_dir + 'phase_'
+    res_dir = res_dir + 'phase_'
     
 if add_orisel:
-    res_file = res_file + 'orisel_'
-    file_dir = res_dir + 'orisel_'
+    res_dir = res_dir + 'orisel_'
     
 if add_sandp:
-    res_file = res_file + 'sandp_analysis.pkl'
-    file_dir = res_dir + 'sandp_'
-else:
-    res_file = res_file + 'analysis.pkl'
+    res_dir = res_dir + 'sandp_'
 
 res_dict = {}
 rng = np.random.default_rng(0)
@@ -90,8 +81,11 @@ dys[dys > 0.5] = 1 - dys[dys > 0.5]
 dss = np.sqrt(dxs**2 + dys**2).reshape(N**2,N**2)
 
 idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
-
+inp_os_samps = np.ones((num_seeds,num_samps))*np.nan
+inp_po_samps = np.ones((num_seeds,num_samps))*np.nan
+inp_mr_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_os_samps = np.ones((num_seeds,num_samps))*np.nan
+rate_po_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_mr_samps = np.ones((num_seeds,num_samps))*np.nan
 mismatch_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_fpss = np.ones((num_seeds,N//2))*np.nan
@@ -99,11 +93,14 @@ corr_curves = np.ones((num_seeds,nbins))*np.nan
 mods = np.ones(num_seeds)*np.nan
 dims = np.ones(num_seeds)*np.nan
 
-for seed_idx in range(num_seeds):
-    samp_idxs = rng.choice(N**2,size=num_samps,replace=False)
+with open(l4_dir + 'analysis.pkl', 'rb') as handle:
+    l4_res_dict = pickle.load(handle)
     
+samp_idxs = l4_res_dict['samp_idxs']
+
+for seed_idx in range(num_seeds):
     try:
-        with open(file_dir + 'seed={:d}.pkl'.format(seed_idx),'rb') as handle:
+        with open(res_dir + 'seed={:d}.pkl'.format(seed_idx),'rb') as handle:
             file_dict = pickle.load(handle)
     except:
         continue
@@ -114,34 +111,47 @@ for seed_idx in range(num_seeds):
     except:
         continue
     
+    l4_rates = l4_dict['L4_rates']
+    l4_rates /= np.nanmean(l4_rates,axis=(-2,-1),keepdims=True)
     if add_phase:
-        l4_rates = l4_dict['L4_rates']
-        l4_rates /= np.nanmean(l4_rates,axis=(-2,-1),keepdims=True)
         _,_,phs = af.calc_dc_ac_comp(l4_rates)
         l4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,16,endpoint=False)[None,None,None,:]-phs[:,:,:,None]))
         l4_phase_rates *= np.nanmean(l4_rates,axis=(-1),keepdims=True) \
             / np.nanmean(l4_phase_rates,axis=(-1),keepdims=True)
         l4_rates = l4_phase_rates
-        _,l4_rate_MR = af.calc_OPM_MR(l4_rates)
-        l4_dict['L4_rate_mr'] = l4_rate_MR.reshape(2,-1)
-        l4_dict['L4_rates'] = l4_rates * np.nanmean(l4_dict['L4_rates'],axis=(-2,-1),keepdims=True)
+    if add_orisel:
+        _,_,doub_po = af.calc_dc_ac_comp(l4_rates.mean(-1))
+        l4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None]))
+        l4_orisel_rates *= np.nanmean(l4_rates.mean(-1),axis=(-1),keepdims=True) / np.nanmean(l4_orisel_rates,axis=(-1),keepdims=True)
+        l4_norm_phase_tuning = np.fmax(1e-12,l4_rates / np.nanmean(l4_rates,axis=(-1),keepdims=True))
+        l4_rates = l4_norm_phase_tuning * l4_orisel_rates[:,:,None]
+    if add_sandp:
+        rng = np.random.default_rng(seed_idx)
+        l4_rates = rng.permutation(l4_rates)
+        
+    l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates)
+    l4_dict['L4_rate_opm'] = l4_rate_opm.reshape(2,-1)
+    l4_dict['L4_rate_mr'] = l4_rate_MR.reshape(2,-1)
+    l4_dict['L4_rates'] = l4_rates * np.nanmean(l4_dict['L4_rates'],axis=(-2,-1),keepdims=True)
     
     inp_opm = l4_dict['L4_rate_opm'][0].reshape(N,N)
     inp_mr = l4_dict['L4_rate_mr'][0].reshape(N,N)
     rate_opm = file_dict['L23_rate_opm'][0].reshape(N,N)
     rate_mr = file_dict['L23_rate_mr'][0].reshape(N,N)
 
-    inp_PO = np.angle(inp_opm)*180/(2*np.pi)
-    inp_PO[inp_PO > 90] -= 180
-    rate_PO = np.angle(rate_opm)*180/(2*np.pi)
-    rate_PO[rate_PO > 90] -= 180
-
-    mismatch = np.abs(inp_PO - rate_PO)
-    mismatch[mismatch > 90] = 180 - mismatch[mismatch > 90]
+    inp_po = np.angle(inp_opm)*180/(2*np.pi)
+    inp_po[inp_po > 90] -= 180
+    rate_po = np.angle(rate_opm)*180/(2*np.pi)
+    rate_po[rate_po > 90] -= 180
     
-    rate_os_samp = np.abs(rate_opm).flatten()[samp_idxs]
-    rate_mr_samp = rate_mr.flatten()[samp_idxs]
-    mismatch_samp = mismatch.flatten()[samp_idxs]
+    inp_os_samp = np.abs(inp_opm).flatten()[samp_idxs[seed_idx]]
+    rate_os_samp = np.abs(rate_opm).flatten()[samp_idxs[seed_idx]]
+    inp_po_samp = inp_po.flatten()[samp_idxs[seed_idx]]
+    rate_po_samp = rate_po.flatten()[samp_idxs[seed_idx]]
+    inp_mr_samp = inp_mr.flatten()[samp_idxs[seed_idx]]
+    rate_mr_samp = rate_mr.flatten()[samp_idxs[seed_idx]]
+    mismatch_samp = np.abs(inp_po_samp - rate_po_samp)
+    mismatch_samp[mismatch_samp > 90] = 180 - mismatch_samp[mismatch_samp > 90]
 
     rate_fft = np.abs(np.fft.fftshift(np.fft.fft2(rate_opm - np.nanmean(rate_opm))))**2
     rate_fps = np.zeros(N//2)
@@ -170,7 +180,11 @@ for seed_idx in range(num_seeds):
     
     dim = np.trace(corr)**2 / np.trace(corr @ corr)
     
+    inp_os_samps[seed_idx] = inp_os_samp
+    inp_po_samps[seed_idx] = inp_po_samp
+    inp_mr_samps[seed_idx] = inp_mr_samp
     rate_os_samps[seed_idx] = rate_os_samp
+    rate_po_samps[seed_idx] = rate_po_samp
     rate_mr_samps[seed_idx] = rate_mr_samp
     mismatch_samps[seed_idx] = mismatch_samp
     rate_fpss[seed_idx] = rate_fps
@@ -178,7 +192,11 @@ for seed_idx in range(num_seeds):
     mods[seed_idx] = mod
     dims[seed_idx] = dim
     
+res_dict['inp_os_samps'] = inp_os_samps
+res_dict['inp_po_samps'] = inp_po_samps
+res_dict['inp_mr_samps'] = inp_mr_samps
 res_dict['rate_os_samps'] = rate_os_samps
+res_dict['rate_po_samps'] = rate_po_samps
 res_dict['rate_mr_samps'] = rate_mr_samps
 res_dict['mismatch_samps'] = mismatch_samps
 res_dict['rate_fpss'] = rate_fpss
@@ -186,5 +204,5 @@ res_dict['corr_curves'] = corr_curves
 res_dict['mods'] = mods
 res_dict['dims'] = dims
 
-with open(res_file, 'wb') as handle:
+with open(res_dir + 'analysis.pkl', 'wb') as handle:
     pickle.dump(res_dict,handle)

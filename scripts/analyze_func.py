@@ -10,6 +10,32 @@ from scipy.integrate import quad
 from scipy.optimize import curve_fit
 from scipy.special import erf
 import matplotlib.pyplot as plt
+from scipy.stats import rankdata
+
+def circ_corrcoef(x,y,P=2*np.pi):
+    assert len(x) == len(y), "Input arrays must have the same length."
+    xbar = np.angle(np.mean(np.exp(1j*x*2*np.pi/P)))
+    ybar = np.angle(np.mean(np.exp(1j*y*2*np.pi/P)))
+    sin_corrcoef = np.mean(np.sin(x - xbar) * np.sin(y - ybar)) / np.sqrt(np.mean(np.sin(x - xbar)**2) * np.mean(np.sin(y - ybar)**2))
+    cos_corrcoef = np.mean(np.cos(x - xbar) * np.cos(y - ybar)) / np.sqrt(np.mean(np.cos(x - xbar)**2) * np.mean(np.cos(y - ybar)**2))
+    return sin_corrcoef,cos_corrcoef
+
+def mardia_rho(x,y):
+    assert len(x) == len(y), "Input arrays must have the same length."
+    if not (np.isnan(x) == np.isnan(y)).all():
+        nan_idxs = np.isnan(x) | np.isnan(y)
+        xcopy = x[~nan_idxs]
+        ycopy = y[~nan_idxs]
+    else:
+        xcopy = x
+        ycopy = y
+    
+    xrank = rankdata(xcopy)
+    yrank = rankdata(ycopy)
+    n = len(xrank)
+    r1 = (np.sum(np.cos(2*np.pi*(xrank-yrank)/n))**2 + np.sum(np.sin(2*np.pi*(xrank-yrank)/n))**2) / n**2
+    r2 = (np.sum(np.cos(2*np.pi*(xrank+yrank)/n))**2 + np.sum(np.sin(2*np.pi*(xrank+yrank)/n))**2) / n**2
+    return np.fmax(r1,r2)
 
 def get_fps(A,axes=None,zero_mean=True,calc_err=False):
     if axes is None or axes == (-2,-1):
