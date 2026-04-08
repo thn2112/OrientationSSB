@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.insert(0, './..')
 
+from functools import cache
 import pickle
 from math import floor, ceil
 import numpy as np
@@ -37,27 +38,55 @@ def mardia_rho(x,y):
     r2 = (np.sum(np.cos(2*np.pi*(xrank+yrank)/n))**2 + np.sum(np.sin(2*np.pi*(xrank+yrank)/n))**2) / n**2
     return np.fmax(r1,r2)
 
-def get_fps(A,axes=None,zero_mean=True,calc_err=False):
-    if axes is None or axes == (-2,-1):
-        Nax = A.shape[-2]
-        axes = (A.ndim-2,A.ndim-1)
-    else:
-        assert axes[0] < axes[1], "axes[0] must be smaller than axes[1]"
-        Nax = A.shape[axes[0]]
-    if zero_mean:
-        fps = np.abs(np.fft.fftshift(np.fft.fft2(A - np.nanmean(A,axis=axes,keepdims=True),axes=axes),axes=axes))**2
-    else:
-        fps = np.abs(np.fft.fftshift(np.fft.fft2(A,axes=axes),axes=axes))**2
-    raps = np.zeros(A.shape[:axes[0]] + A.shape[axes[0]+1:axes[1]] \
-        + A.shape[axes[1]+1:] + (int(np.ceil(Nax//2*np.sqrt(2))),))
-    if calc_err:
-        raps_err = np.zeros(A.shape[:axes[0]] + A.shape[axes[0]+1:axes[1]] \
-            + A.shape[axes[1]+1:] + (int(np.ceil(Nax//2*np.sqrt(2))),))
+@cache
+def get_bin_cents(Nax,nbins):
+    max_val = np.ceil(Nax//2*np.sqrt(2))
+    return np.linspace(0,max_val,nbins+1)
 
-    grid = np.arange(-Nax//2,Nax//2)
-    x,y = np.meshgrid(grid,grid)
-    bin_idxs = np.digitize(np.sqrt(x**2+y**2),np.arange(0,np.ceil(Nax//2*np.sqrt(2)))+0.5)
-    for idx in range(0,int(np.ceil(Nax//2*np.sqrt(2)))):
+@cache
+def get_s_idxs(Nax,nbins,fftshift=True):
+    max_val = np.ceil(Nax//2*np.sqrt(2))
+    step = max_val / nbins
+    if fftshift:
+        x,y = np.meshgrid(np.arange(-Nax//2,Nax//2),np.arange(-Nax//2,Nax//2))
+    else:
+        x,y = np.meshgrid(np.arange(Nax),np.arange(Nax))
+        x[x > Nax//2] = Nax - x[x > Nax//2]
+        y[y > Nax//2] = Nax - y[y > Nax//2]
+    return np.digitize(np.sqrt(x**2+y**2),np.linspace(0,max_val,nbins+1)+step/2)
+
+@cache
+def get_ds_idxs(Nax,nbins):
+    max_val = np.ceil(Nax//2*np.sqrt(2))
+    step = max_val / nbins
+    x,y = np.meshgrid(np.arange(Nax),np.arange(Nax))
+    dx = np.abs(x[:,:,None,None] - x[None,None,:,:])
+    dy = np.abs(y[:,:,None,None] - y[None,None,:,:])
+    dx[dx > Nax//2] = Nax - dx[dx > Nax//2]
+    dy[dy > Nax//2] = Nax - dy[dy > Nax//2]
+    return np.digitize(np.sqrt(dx**2 + dy**2).reshape(Nax**2,Nax**2),np.linspace(0,max_val,nbins+1)+step/2)
+
+def get_fps(A,grid_axes=None,nbins=None,zero_mean=True,calc_err=False):
+    grid_axes = (-2,-1) if grid_axes is None else grid_axes
+    assert len(grid_axes) == 2, "Grid axes must be length 2."
+    Nax = A.shape[grid_axes[0]]
+    
+    # shift grid axes to end and check they are square
+    Amove = np.moveaxis(A,grid_axes,(-2,-1))
+    assert Amove.shape[-2] == Amove.shape[-1], "Input array must have equal length in given axes."
+    
+    if nbins is None:
+        nbins = int(np.round(np.ceil(Nax//2*np.sqrt(2))))
+    if zero_mean:
+        fps = np.abs(np.fft.fftshift(np.fft.fft2(Amove - np.nanmean(Amove,axis=(-2,-1),keepdims=True))))**2
+    else:
+        fps = np.abs(np.fft.fftshift(np.fft.fft2(A)))**2
+    raps = np.zeros(Amove.shape[:-2] + (nbins,))
+    if calc_err:
+        raps_err = np.zeros(Amove.shape[:-2] + (nbins,))
+
+    bin_idxs = get_s_idxs(Nax,nbins)
+    for idx in range(0,nbins):
         raps[...,idx] = np.mean(fps[...,bin_idxs == idx],-1)
         if calc_err:
             raps_err[...,idx] = np.std(fps[...,bin_idxs == idx],-1) / np.sqrt(np.sum(...,bin_idxs == idx),-1)
@@ -66,6 +95,48 @@ def get_fps(A,axes=None,zero_mean=True,calc_err=False):
         return fps,raps,raps_err
     else:
         return fps,raps
+    
+def get_corr(A,grid_axes=None,patt_axes=None,nbins=None,calc_err=False):
+    patt_axes = (-1,) if patt_axes is None else patt_axes
+    grid_axes = (-len(patt_axes)-1,) if grid_axes is None else grid_axes
+    if np.isscalar(grid_axes):
+        grid_axes = (grid_axes,)
+    assert len(grid_axes) <= 2, "Grid axes must be length 2 or less."
+    Ngrid = 1
+    for ax in grid_axes:
+        Ngrid *= A.shape[ax]
+    Nax = int(np.round(np.sqrt(Ngrid)))
+    
+    # shift grid and pattern axes to end and check grid axes are square
+    Amove = np.moveaxis(A,grid_axes + patt_axes,tuple(range(-(len(grid_axes)+len(patt_axes)),0)))
+    assert Nax**2 == Ngrid, "Grid dimensions must be a perfect square."
+    
+    if nbins is None:
+        nbins = int(np.round(np.ceil(Nax//2*np.sqrt(2))))
+
+    Az = Amove.reshape(Amove.shape[:-len(grid_axes)-len(patt_axes)] + (Nax**2,-1))
+    Npatt = Az.shape[-1]
+    Az = Az - np.mean(Az,axis=-1,keepdims=True)
+    Az = Az / np.std(Az,axis=-1,keepdims=True)
+    
+    corr = np.zeros(Az.shape[:-2] + (Nax**2,Nax**2))
+    for i in range(Npatt):
+        corr += Az[...,None,:,i] * Az[...,:,None,i]
+    corr /= Npatt
+    corr_curve = np.zeros(Az.shape[:-2] + (nbins,))
+    if calc_err:
+        corr_err = np.zeros(Az.shape[:-2] + (nbins,))
+    
+    bin_idxs = get_ds_idxs(Nax,nbins)
+    for idx in range(nbins):
+        corr_curve[...,idx] = np.mean(corr[...,bin_idxs == idx],-1)
+        if calc_err:
+            corr_err[...,idx] = np.std(corr[...,bin_idxs == idx],-1) / np.sqrt(np.sum(...,bin_idxs == idx),-1)
+    
+    if calc_err:
+        return corr,corr_curve,corr_err
+    else:
+        return corr,corr_curve
 
 def get_ori_sel(opm,calc_fft=True):
     N4 = opm.shape[0]

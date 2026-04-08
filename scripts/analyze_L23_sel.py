@@ -71,7 +71,7 @@ if add_sandp:
 res_dict = {}
 rng = np.random.default_rng(0)
 
-nbins = 50
+nbins = 43
 npatt = n_ori * n_phs
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
 dxs = np.abs(xs[:,:,None,None] - xs[None,None,:,:])
@@ -84,12 +84,14 @@ idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
 inp_os_samps = np.ones((num_seeds,num_samps))*np.nan
 inp_po_samps = np.ones((num_seeds,num_samps))*np.nan
 inp_mr_samps = np.ones((num_seeds,num_samps))*np.nan
+inp_fpss = np.ones((num_seeds,N//2))*np.nan
+inp_corr_curves = np.ones((num_seeds,nbins))*np.nan
 rate_os_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_po_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_mr_samps = np.ones((num_seeds,num_samps))*np.nan
-mismatch_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_fpss = np.ones((num_seeds,N//2))*np.nan
-corr_curves = np.ones((num_seeds,nbins))*np.nan
+rate_corr_curves = np.ones((num_seeds,nbins))*np.nan
+mismatch_samps = np.ones((num_seeds,num_samps))*np.nan
 mods = np.ones(num_seeds)*np.nan
 dims = np.ones(num_seeds)*np.nan
 
@@ -153,54 +155,44 @@ for seed_idx in range(num_seeds):
     mismatch_samp = np.abs(inp_po_samp - rate_po_samp)
     mismatch_samp[mismatch_samp > 90] = 180 - mismatch_samp[mismatch_samp > 90]
 
-    rate_fft = np.abs(np.fft.fftshift(np.fft.fft2(rate_opm - np.nanmean(rate_opm))))**2
-    rate_fps = np.zeros(N//2)
-
-    grid = np.arange(-N//2,N//2)
-    x,y = np.meshgrid(grid,grid)
-    bin_idxs = np.digitize(np.sqrt(x**2+y**2),np.arange(0,np.ceil(N//2*np.sqrt(2)))+0.5)
-    for idx in range(N//2):
-        rate_fps[idx] = np.mean(rate_fft[bin_idxs == idx])
+    _,inp_fps = af.get_fps(inp_opm)
+    _,rate_fps = af.get_fps(rate_opm)
     
-    resp_z = file_dict['L23_rates'][0].reshape(N**2,-1)
-    resp_z = resp_z - np.mean(resp_z,axis=-1,keepdims=True)
-    resp_z = resp_z / np.std(resp_z,axis=-1,keepdims=True)
-    corr = np.zeros((N**2,N**2))
-    for i in range(npatt):
-        corr += resp_z[None,:,i] * resp_z[:,None,i]
-    corr /= npatt
+    _,inp_corr_curve = af.get_corr(l4_rates[0].reshape(N**2,-1),nbins=nbins)
+    rate_corr,rate_corr_curve = af.get_corr(file_dict['L23_rates'][0].reshape(N**2,-1),nbins=nbins)
     
-    corr_curve = np.zeros((nbins,))
-    for i in range(nbins):
-        corr_curve[i] = np.mean(corr[idxs == i+1],axis=-1)
-    arg_min = np.argmin(corr_curve)
-    corr_mins = corr_curve[arg_min]
-    corr_maxs = np.max(corr_curve[arg_min:])
+    arg_min = np.argmin(rate_corr_curve)
+    corr_mins = rate_corr_curve[arg_min]
+    corr_maxs = np.max(rate_corr_curve[arg_min:])
     mod = corr_maxs - corr_mins
     
-    dim = np.trace(corr)**2 / np.trace(corr @ corr)
+    dim = np.trace(rate_corr)**2 / np.trace(rate_corr @ rate_corr)
     
     inp_os_samps[seed_idx] = inp_os_samp
     inp_po_samps[seed_idx] = inp_po_samp
     inp_mr_samps[seed_idx] = inp_mr_samp
+    inp_fpss[seed_idx] = inp_fps
+    inp_corr_curves[seed_idx] = inp_corr_curve
     rate_os_samps[seed_idx] = rate_os_samp
     rate_po_samps[seed_idx] = rate_po_samp
     rate_mr_samps[seed_idx] = rate_mr_samp
-    mismatch_samps[seed_idx] = mismatch_samp
     rate_fpss[seed_idx] = rate_fps
-    corr_curves[seed_idx] = corr_curve
+    rate_corr_curves[seed_idx] = rate_corr_curve
+    mismatch_samps[seed_idx] = mismatch_samp
     mods[seed_idx] = mod
     dims[seed_idx] = dim
     
 res_dict['inp_os_samps'] = inp_os_samps
 res_dict['inp_po_samps'] = inp_po_samps
 res_dict['inp_mr_samps'] = inp_mr_samps
+res_dict['inp_fpss'] = inp_fpss
+res_dict['inp_corr_curves'] = inp_corr_curves
 res_dict['rate_os_samps'] = rate_os_samps
 res_dict['rate_po_samps'] = rate_po_samps
 res_dict['rate_mr_samps'] = rate_mr_samps
-res_dict['mismatch_samps'] = mismatch_samps
 res_dict['rate_fpss'] = rate_fpss
-res_dict['corr_curves'] = corr_curves
+res_dict['rate_corr_curves'] = rate_corr_curves
+res_dict['mismatch_samps'] = mismatch_samps
 res_dict['mods'] = mods
 res_dict['dims'] = dims
 
