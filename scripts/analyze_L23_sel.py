@@ -84,12 +84,12 @@ idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
 inp_os_samps = np.ones((num_seeds,num_samps))*np.nan
 inp_po_samps = np.ones((num_seeds,num_samps))*np.nan
 inp_mr_samps = np.ones((num_seeds,num_samps))*np.nan
-inp_fpss = np.ones((num_seeds,N//2))*np.nan
+inp_fpss = np.ones((num_seeds,nbins))*np.nan
 inp_corr_curves = np.ones((num_seeds,nbins))*np.nan
 rate_os_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_po_samps = np.ones((num_seeds,num_samps))*np.nan
 rate_mr_samps = np.ones((num_seeds,num_samps))*np.nan
-rate_fpss = np.ones((num_seeds,N//2))*np.nan
+rate_fpss = np.ones((num_seeds,nbins))*np.nan
 rate_corr_curves = np.ones((num_seeds,nbins))*np.nan
 mismatch_samps = np.ones((num_seeds,num_samps))*np.nan
 mods = np.ones(num_seeds)*np.nan
@@ -117,19 +117,19 @@ for seed_idx in range(num_seeds):
     l4_rates /= np.nanmean(l4_rates,axis=(-2,-1),keepdims=True)
     if add_phase:
         _,_,phs = af.calc_dc_ac_comp(l4_rates)
-        l4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,16,endpoint=False)[None,None,None,:]-phs[:,:,:,None]))
+        l4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,None,:]-phs[:,:,:,None]))
         l4_phase_rates *= np.nanmean(l4_rates,axis=(-1),keepdims=True) \
             / np.nanmean(l4_phase_rates,axis=(-1),keepdims=True)
         l4_rates = l4_phase_rates
     if add_orisel:
         _,_,doub_po = af.calc_dc_ac_comp(l4_rates.mean(-1))
-        l4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None]))
+        l4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,:]-doub_po[:,:,None]))
         l4_orisel_rates *= np.nanmean(l4_rates.mean(-1),axis=(-1),keepdims=True) / np.nanmean(l4_orisel_rates,axis=(-1),keepdims=True)
         l4_norm_phase_tuning = np.fmax(1e-12,l4_rates / np.nanmean(l4_rates,axis=(-1),keepdims=True))
-        l4_rates = l4_norm_phase_tuning * l4_orisel_rates[:,:,None]
+        l4_rates = l4_norm_phase_tuning * l4_orisel_rates[:,:,:,None]
     if add_sandp:
         rng = np.random.default_rng(seed_idx)
-        l4_rates = rng.permutation(l4_rates)
+        l4_rates[0] = rng.permutation(l4_rates[0])
         
     l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates)
     l4_dict['L4_rate_opm'] = l4_rate_opm.reshape(2,-1)
