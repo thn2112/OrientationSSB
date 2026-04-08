@@ -69,7 +69,7 @@ if args['map'] is None or args['map'] == 'low':
     opm_fft *= np.exp(-freqs/decay)
 elif 'band' in args['map']:
     if args['map'] == 'band':
-        peak = 6
+        peak = 5
     else:
         _,peak = args['map'].split('_')
         peak = float(peak)
