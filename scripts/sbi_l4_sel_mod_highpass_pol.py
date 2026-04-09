@@ -280,7 +280,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     nori = 8
     nphs = 8
     nint = 12
-    nwrm = 4 * nint * nphs
+    nwrm = 6 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     oris = np.linspace(0,np.pi,nori,endpoint=False)
     
@@ -321,9 +321,11 @@ def sheet_simulator(theta):
     theta[:,6] = log2(Je_broad / Je_narrow)
     theta[:,7] = log2(Ji_broad / Ji_narrow)
     
-    returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr]
+    returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr,mu_mm,var_t]
     os = excitatory orientation selectivity
     mr = excitatory modulation ratio
+    mm = mismatch between input and output preferred orientations
+    var_t = variance of mean network activity over time, indicative of stability of the network
     '''
     
     _,_,_,Jii = get_J(theta)
@@ -341,7 +343,9 @@ def sheet_simulator(theta):
     mm = np.abs(inp_po - out_po)
     mm[mm > 90] = 180 - mm[mm > 90]
     
-    out = torch.zeros((theta.shape[0],11),dtype=theta.dtype).to(theta.device)
+    var_t = np.var(resps[:,0,:,:,:].mean(1),axis=-1).mean(-1)
+    
+    out = torch.zeros((theta.shape[0],12),dtype=theta.dtype).to(theta.device)
     out[:,0:3] = torch.tensor(np.quantile(os,[0.25,0.50,0.75],axis=1).T,dtype=theta.dtype).to(theta.device)
     out[:,3] = torch.tensor(np.mean(os,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,4] = torch.tensor(np.std(os,axis=1),dtype=theta.dtype).to(theta.device)
@@ -349,13 +353,14 @@ def sheet_simulator(theta):
     out[:,8] = torch.tensor(np.mean(mr,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,9] = torch.tensor(np.std(mr,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,10] = torch.tensor(np.mean(mm,axis=1),dtype=theta.dtype).to(theta.device)
+    out[:,11] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4)) & (Jii < 0)
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
 thetas = torch.zeros((0,8))
-xs = torch.zeros((0,11))
+xs = torch.zeros((0,12))
 
 while thetas.shape[0] < num_samp:
     this_samps = min(3, num_samp - thetas.shape[0])
