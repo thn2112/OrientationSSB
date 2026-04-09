@@ -57,7 +57,7 @@ if static:
 
 if args['map'] is not None:
     res_dir = res_dir + '{:s}_'.format(args['map'])
-    L4_dir = l4_dir + '{:s}_'.format(args['map'])
+    l4_dir = l4_dir + '{:s}_'.format(args['map'])
     
 if add_phase:
     res_dir = res_dir + 'phase_'
