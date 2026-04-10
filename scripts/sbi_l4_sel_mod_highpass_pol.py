@@ -343,7 +343,7 @@ def sheet_simulator(theta):
     mm = np.abs(inp_po - out_po)
     mm[mm > 90] = 180 - mm[mm > 90]
     
-    var_t = np.var(resps[:,0,:,:,:].mean(1),axis=-1).mean(-1)
+    var_t = np.std(resps[:,0,:,:,:].mean(1),axis=-1).mean(-1) / np.mean(resps[:,0,:,:,0])
     
     out = torch.zeros((theta.shape[0],12),dtype=theta.dtype).to(theta.device)
     out[:,0:3] = torch.tensor(np.quantile(os,[0.25,0.50,0.75],axis=1).T,dtype=theta.dtype).to(theta.device)
