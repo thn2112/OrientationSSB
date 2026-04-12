@@ -69,7 +69,7 @@ if args['map'] is None or args['map'] == 'low':
     opm_fft *= np.exp(-freqs/decay)
 elif 'band' in args['map']:
     if args['map'] == 'band':
-        peak = 5
+        peak = 6
     else:
         _,peak = args['map'].split('_')
         peak = float(peak)
@@ -92,7 +92,7 @@ kl2 = 2
 
 if static:
     def elong_inp(gam,ori,phs):
-        return 1 + 0.6*np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
+        return 1 + 0.5*np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
 else:
     def elong_inp(gam,ori,phs):
         return 1 + np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
