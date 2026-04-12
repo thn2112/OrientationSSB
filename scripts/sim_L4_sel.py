@@ -244,14 +244,12 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     returns: resps, array of shape (theta.shape[0],2,N**2,n_ori=8,n_phs=8)
     '''
     Jee,Jei,Jie,Jii = 10**params[:4]
-    Jee *=  1
     Jei *= -1
-    Jie *=  1
     Jii *= -1
     
     c = 100
     thresh = c
-    nwrm = 4 * n_int * n_phs
+    nwrm = 6 * n_int * n_phs
     dt = 1 / (n_int * n_phs * 3)
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
     
