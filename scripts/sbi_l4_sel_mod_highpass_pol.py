@@ -9,6 +9,7 @@ from scipy import interpolate
 from scipy import integrate
 
 from sbi.utils.user_input_checks import process_prior
+from sbi.utils import BoxUniform
 
 import analyze_func as af
 import map_func as mf
@@ -46,14 +47,13 @@ if bayes_iter == 0:
     theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
     theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
-    theta[:,4] = s_n
-    theta[:,5] = s_b
-    theta[:,6] = log2(Je_broad / Je_narrow)
-    theta[:,7] = log2(Ji_broad / Ji_narrow)
+    theta[:,4] = s_b
+    theta[:,5] = log2(Je_broad / Je_narrow)
+    theta[:,6] = log2(Ji_broad / Ji_narrow)
     '''
     # load posterior of phase ring connectivity parameters
-    with open('./../notebooks/l4_broad_narrow_posterior_4.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
+    full_prior = BoxUniform(low =torch.tensor([0.0,-0.5,-2.5,-2.0, 0.5,-1.5,-1.5],device=device),
+                            high=torch.tensor([1.0, 1.0,-0.5, 1.0, 4.0, 1.5, 1.5],device=device),)
 else:
     with open(f'./../notebooks/l4_highpass_pol_posterior_{bayes_iter:d}.pkl','rb') as handle:
         full_prior = pickle.load(handle)
@@ -280,18 +280,16 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     nori = 8
     nphs = 8
     nint = 12
-    nwrm = 6 * nint * nphs
+    nwrm = 4 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     oris = np.linspace(0,np.pi,nori,endpoint=False)
     
     tsamp = nwrm-1 + np.arange(0,nphs) * nint
     resps = np.zeros((theta.shape[0],2,N**2,nori,nphs))
     for prm_idx in range(theta.shape[0]):
-        kern_nar = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,4].item()))**2)
-        norm = kern_nar.sum(axis=1).mean(axis=0)
-        kern_nar /= norm
+        kern_nar = np.eye(N**2)
         
-        kern_bro = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,5].item()))**2)
+        kern_bro = np.exp(-(dss/(np.sqrt(sig2)*theta[prm_idx,4].item()))**2)
         norm = kern_bro.sum(axis=1).mean(axis=0)
         kern_bro /= norm
         
@@ -305,7 +303,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_nar,kern_bro,N,2,2,
                                     thresh,thresh,0,dt,nwrm+nint*nphs,tsamp,
-                                    bro_frac_e=2**theta[prm_idx,6].item(),bro_frac_i=2**theta[prm_idx,7].item())
+                                    bro_frac_e=2**theta[prm_idx,5].item(),bro_frac_i=2**theta[prm_idx,6].item())
             resps[prm_idx,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
@@ -343,7 +341,8 @@ def sheet_simulator(theta):
     mm = np.abs(inp_po - out_po)
     mm[mm > 90] = 180 - mm[mm > 90]
     
-    var_t = np.std(resps[:,0,:,:,:].mean(1),axis=-1).mean(-1) / np.mean(resps[:,0,:,:,0])
+    mean_act = resps[:,0,:,:,:].mean((1,2))
+    var_t = (np.max(mean_act,axis=-1)/np.min(mean_act,axis=-1) - 1)
     
     out = torch.zeros((theta.shape[0],12),dtype=theta.dtype).to(theta.device)
     out[:,0:3] = torch.tensor(np.quantile(os,[0.25,0.50,0.75],axis=1).T,dtype=theta.dtype).to(theta.device)
@@ -359,7 +358,7 @@ def sheet_simulator(theta):
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
-thetas = torch.zeros((0,8))
+thetas = torch.zeros((0,7))
 xs = torch.zeros((0,12))
 
 while thetas.shape[0] < num_samp:
