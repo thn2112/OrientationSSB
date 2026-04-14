@@ -92,7 +92,7 @@ kl2 = 2
 
 if static:
     def elong_inp(gam,ori,phs):
-        return 1 + 0.5*np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
+        return 1 + 0.4*np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
 else:
     def elong_inp(gam,ori,phs):
         return 1 + np.cos(phs)*np.exp(-kl2*(1+(1-gam**2)/gam**2*np.sin(ori)**2)/2)
@@ -143,19 +143,19 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
     ta, tn, tg: time constants for AMPA, NMDA, and GABA receptor dynamics
     frac_n: fraction of NMDA vs NMDA+AMPA receptors in the excitatory population
     '''
-    
+
     xea = xea0.copy()
     xen = xen0.copy()
     xeg = xeg0.copy()
     xia = xia0.copy()
     xin = xin0.copy()
     xig = xig0.copy()
-    
+
     Wee = Jee*(kern_n.reshape(N**2,N**2) + b_frac_e*kern_b.reshape(N**2,N**2))
     Wei = Jei*(kern_n.reshape(N**2,N**2) + b_frac_i*kern_b.reshape(N**2,N**2))
     Wie = Jie*(kern_n.reshape(N**2,N**2) + b_frac_e*kern_b.reshape(N**2,N**2))
     Wii = Jii*(kern_n.reshape(N**2,N**2) + b_frac_i*kern_b.reshape(N**2,N**2))
-        
+
     def dyn_func(t,x,ncell):
         xea = x[0*ncell:1*ncell]
         xen = x[1*ncell:2*ncell]
@@ -163,17 +163,17 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
         xia = x[3*ncell:4*ncell]
         xin = x[4*ncell:5*ncell]
         xig = x[5*ncell:6*ncell]
-        
+
         ff_inp = inp(t)
 
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
-        
+
         net_ee = Wee@ye + ff_inp
         net_ei = Wei@yi
         net_ie = Wie@ye + ff_inp
         net_ii = Wii@yi
-        
+
         dx = np.zeros_like(x)
         dx[0*ncell:1*ncell] = ((1-frac_n)*net_ee - xea)/ta
         dx[1*ncell:2*ncell] = (frac_n*net_ee - xen)/tn
@@ -181,11 +181,11 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
         dx[3*ncell:4*ncell] = ((1-frac_n)*net_ie - xia)/ta
         dx[4*ncell:5*ncell] = (frac_n*net_ie - xin)/tn
         dx[5*ncell:6*ncell] = (net_ii - xig)/tg
-        
+
         return dx.flatten()
-    
+
     x0 = np.concatenate((xea,xen,xeg,xia,xin,xig),axis=0).flatten()
-    
+
     start_time = time.process_time()
     max_time = 60
     def time_event(t,x,ncell):
@@ -193,21 +193,21 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
         if int_time < 0: int_time = 0
         return int_time
     time_event.terminal = True
-    
+
     sol = integrate.solve_ivp(dyn_func,(0,dt*Nt),y0=x0,t_eval=tsamp*dt,args=(N**2,),method='RK23')#,events=time_event)
     if sol.status != 0:
         x = np.nan*np.ones((6*N**2,len(tsamp)))
     else:
         x = sol.y
     x = x.reshape((-1,len(tsamp)))
-    
+
     xea = x[0*N**2:1*N**2,:]
     xen = x[1*N**2:2*N**2,:]
     xeg = x[2*N**2:3*N**2,:]
     xia = x[3*N**2:4*N**2,:]
     xin = x[4*N**2:5*N**2,:]
     xig = x[5*N**2:6*N**2,:]
-    
+
     ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
     yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
     return xea,xen,xeg,xia,xin,xig,np.concatenate((ye,yi))
@@ -215,11 +215,11 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
 def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
     gam_map_flat = gam_map.flatten()
     ori_map_flat = ori_map.flatten()
-    
+
     c = 100
     thresh = c
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
-    
+
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
         phs_map_flat = mf.gen_abs_phs_map(N,rf_sct_map,pol_map,ori,grate_freq,L_deg).flatten()
@@ -227,7 +227,7 @@ def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
             return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
         for phs_idx in range(n_phs):
             resps[:,:,ori_idx,phs_idx] = (np.fmax(0,ff_inp(phs_idx/n_phs / 3)-thresh)**2).reshape(1,N**2)
-            
+
     return resps
 
 def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
@@ -238,35 +238,31 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     params[3] = log10[|Jii]]
     params[4] = Jb_e / Jn_e
     params[5] = Jb_i / Jn_i
-    params[6] = s_n
-    params[7] = s_b
-    
+    params[6] = s_b
+
     returns: resps, array of shape (theta.shape[0],2,N**2,n_ori=8,n_phs=8)
     '''
     Jee,Jei,Jie,Jii = 10**params[:4]
     Jei *= -1
     Jii *= -1
-    
+
     c = 100
     thresh = c
-    nwrm = 6 * n_int * n_phs
+    nwrm = 8 * n_int * n_phs
     dt = 1 / (n_int * n_phs * 3)
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
-    
-    s_n = np.sqrt(sig2)*params[6]
-    s_b = np.sqrt(sig2)*params[7]
-    
-    kern_n = np.exp(-(dss/s_n)**2)
-    norm = kern_n.sum(axis=1).mean(axis=0)
-    kern_n /= norm
-    
+
+    s_b = np.sqrt(sig2)*params[6]
+
+    kern_n = np.eye(N**2)
+
     kern_b = np.exp(-(dss/s_b)**2)
     norm = kern_b.sum(axis=1).mean(axis=0)
     kern_b /= norm
-    
+
     gam_map_flat = gam_map.flatten()
     ori_map_flat = ori_map.flatten()
-    
+
     tsamp = nwrm-1 + np.arange(0,n_phs) * n_int
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
@@ -281,7 +277,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
                                         thresh,thresh,0,dt,nwrm,tsamp[0:1],
                                         b_frac_e=params[4],b_frac_i=params[5])
                 resps[:,:,ori_idx,phs_idx] = resp.reshape(2,N**2)
-            
+
         else:
             def ff_inp(t):
                 return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
@@ -301,7 +297,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
         #                          ff_inp,Jee,Jei,Jie,Jii,kern,N,2,2,
         #                          thresh,thresh,phs_idx*n_int*dt,dt,n_int,lat_frac=params[4])
         #     resps[:,:,ori_idx,phs_idx+1] = resp.reshape(2,N**2)
-        
+
     return resps
 
 # Integrate to get firing rates
