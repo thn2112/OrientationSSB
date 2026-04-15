@@ -413,7 +413,7 @@ def sheet_simulator(theta):
 thetas = torch.zeros((0,10),dtype=torch.float32,device=device)
 xs = torch.zeros((0,18),dtype=torch.float32,device=device)
 while thetas.shape[0] < num_samp:
-    this_samps = min(3, num_samp - thetas.shape[0])
+    this_samps = min(1, num_samp - thetas.shape[0])
     
     start = time.process_time()
     # sample from prior
