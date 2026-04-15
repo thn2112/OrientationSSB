@@ -66,13 +66,15 @@ if bayes_iter == 0:
     theta[:,9] = log10[J_mult]
     '''
     # load posterior of phase ring connectivity parameters
-    with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
-        prior = pickle.load(handle)
-    full_prior = PostTimesBoxUniform(prior,
-        post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
-        post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
-        low =torch.tensor([-0.5],device=device),
-        high=torch.tensor([ 0.5],device=device),)
+    # with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
+    #     prior = pickle.load(handle)
+    # full_prior = PostTimesBoxUniform(prior,
+    #     post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
+    #     post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
+    #     low =torch.tensor([-0.5],device=device),
+    #     high=torch.tensor([ 0.5],device=device),)
+    with open(f'./../notebooks/l23_sel_mod_pw_prior.pkl','rb') as handle:
+        full_prior = pickle.load(handle)
 else:
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
         full_prior = pickle.load(handle)
@@ -265,9 +267,9 @@ def get_sheet_resps(theta,N):
     Jii *= 10**theta[:,9]
     
     nori = 8
-    nphs = 16
+    nphs = 8
     nint = 5
-    nwrm = 12 * nint * nphs
+    nwrm = 4 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     
     tsamp = nwrm-1 + np.arange(0,nphs) * nint
@@ -385,7 +387,10 @@ def sheet_simulator(theta):
             dim[i] = npatt
     dim /= npatt
     
-    out = torch.zeros((theta.shape[0],17),dtype=theta.dtype).to(theta.device)
+    mean_act = resps[:,0,:,:,:].mean((1,2))
+    var_t = (np.max(mean_act,axis=-1)/np.min(mean_act,axis=-1) - 1)
+    
+    out = torch.zeros((theta.shape[0],18),dtype=theta.dtype).to(theta.device)
     out[:,0:3] = torch.tensor(np.quantile(os,[0.25,0.50,0.75],axis=1).T,dtype=theta.dtype).to(theta.device)
     out[:,3] = torch.tensor(np.mean(os,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,4] = torch.tensor(np.std(os,axis=1),dtype=theta.dtype).to(theta.device)
@@ -399,13 +404,14 @@ def sheet_simulator(theta):
     out[:,14] = torch.tensor(corr_maxs,dtype=theta.dtype).to(theta.device)
     out[:,15] = torch.tensor(freqs,dtype=theta.dtype).to(theta.device)
     out[:,16] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
+    out[:,17] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4))
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
 thetas = torch.zeros((0,10),dtype=torch.float32,device=device)
-xs = torch.zeros((0,17),dtype=torch.float32,device=device)
+xs = torch.zeros((0,18),dtype=torch.float32,device=device)
 while thetas.shape[0] < num_samp:
     this_samps = min(3, num_samp - thetas.shape[0])
     
