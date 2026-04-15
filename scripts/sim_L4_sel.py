@@ -248,7 +248,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
 
     c = 100
     thresh = c
-    nwrm = 8 * n_int * n_phs
+    nwrm = 4 * n_int * n_phs
     dt = 1 / (n_int * n_phs * 3)
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
 
