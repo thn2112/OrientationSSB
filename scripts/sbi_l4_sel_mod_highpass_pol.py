@@ -280,7 +280,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     nori = 8
     nphs = 8
     nint = 12
-    nwrm = 4 * nint * nphs
+    nwrm = 6 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     oris = np.linspace(0,np.pi,nori,endpoint=False)
     
@@ -362,7 +362,7 @@ thetas = torch.zeros((0,7))
 xs = torch.zeros((0,12))
 
 while thetas.shape[0] < num_samp:
-    this_samps = min(3, num_samp - thetas.shape[0])
+    this_samps = min(1, num_samp - thetas.shape[0])
     
     start = time.process_time()
     # sample from prior
