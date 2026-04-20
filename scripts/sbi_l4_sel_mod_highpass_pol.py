@@ -332,6 +332,7 @@ def sheet_simulator(theta):
     
     resp_opm,mr = af.calc_OPM_MR(resps[:,0,:,:,:])
     os = np.abs(resp_opm)
+    _,raps = af.get_fps(resp_opm.reshape(-1,N,N))
     
     inp_po = np.angle(omap.flatten())*180/(2*np.pi)
     inp_po[inp_po > 90] -= 180
@@ -343,8 +344,9 @@ def sheet_simulator(theta):
     
     mean_act = resps[:,0,:,:,:].mean((1,2))
     var_t = (np.max(mean_act,axis=-1)/np.min(mean_act,axis=-1) - 1)
+    var_r = (np.max(raps,axis=-1)/raps[:,1] - 1)
     
-    out = torch.zeros((theta.shape[0],12),dtype=theta.dtype).to(theta.device)
+    out = torch.zeros((theta.shape[0],13),dtype=theta.dtype).to(theta.device)
     out[:,0:3] = torch.tensor(np.quantile(os,[0.25,0.50,0.75],axis=1).T,dtype=theta.dtype).to(theta.device)
     out[:,3] = torch.tensor(np.mean(os,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,4] = torch.tensor(np.std(os,axis=1),dtype=theta.dtype).to(theta.device)
@@ -353,13 +355,14 @@ def sheet_simulator(theta):
     out[:,9] = torch.tensor(np.std(mr,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,10] = torch.tensor(np.mean(mm,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,11] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
+    out[:,12] = torch.fmin(var_r,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4)) & (Jii < 0)
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
 thetas = torch.zeros((0,7))
-xs = torch.zeros((0,12))
+xs = torch.zeros((0,13))
 
 while thetas.shape[0] < num_samp:
     this_samps = min(1, num_samp - thetas.shape[0])
