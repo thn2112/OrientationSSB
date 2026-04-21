@@ -355,7 +355,7 @@ def sheet_simulator(theta):
     out[:,9] = torch.tensor(np.std(mr,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,10] = torch.tensor(np.mean(mm,axis=1),dtype=theta.dtype).to(theta.device)
     out[:,11] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
-    out[:,12] = torch.fmin(var_r,dtype=theta.dtype).to(theta.device)
+    out[:,12] = torch.tensor(var_r,dtype=theta.dtype).to(theta.device)
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4)) & (Jii < 0)
     
