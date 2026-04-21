@@ -74,7 +74,13 @@ if bayes_iter == 0:
         low =torch.tensor([-0.5],device=device),
         high=torch.tensor([ 0.5],device=device),)
 elif bayes_iter == 1:
-    with open(f'./../notebooks/l23_sel_mod_pw_prior.pkl','rb') as handle:
+    with open(f'./../notebooks/l23_sel_mod_pw_posterior_4.pkl','rb') as handle:
+        full_prior = pickle.load(handle)
+elif bayes_iter == 2:
+    with open(f'./../notebooks/l23_sel_mod_pw_posterior_6.pkl','rb') as handle:
+        full_prior = pickle.load(handle)
+elif bayes_iter == 3:
+    with open(f'./../notebooks/l23_sel_mod_pw_posterior_7.pkl','rb') as handle:
         full_prior = pickle.load(handle)
 else:
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
