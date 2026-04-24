@@ -66,21 +66,26 @@ if bayes_iter == 0:
     theta[:,9] = log10[J_mult]
     '''
     # load posterior of phase ring connectivity parameters
-    with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
-        prior = pickle.load(handle)
-    full_prior = PostTimesBoxUniform(prior,
-        post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
-        post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
-        low =torch.tensor([-0.5],device=device),
-        high=torch.tensor([ 0.5],device=device),)
-elif bayes_iter == 1:
+    # with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
+    #     prior = pickle.load(handle)
+    # full_prior = PostTimesBoxUniform(prior,
+    #     post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
+    #     post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
+    #     low =torch.tensor([-0.5],device=device),
+    #     high=torch.tensor([ 0.5],device=device),)
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_4.pkl','rb') as handle:
         full_prior = pickle.load(handle)
-elif bayes_iter == 2:
+elif bayes_iter == 1:
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_6.pkl','rb') as handle:
         full_prior = pickle.load(handle)
+elif bayes_iter == 2:
+    with open(f'./../notebooks/l23_sel_mod_pw_posterior_8.pkl','rb') as handle:
+        full_prior = pickle.load(handle)
 elif bayes_iter == 3:
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_7.pkl','rb') as handle:
+    with open(f'./../notebooks/l23_sel_mod_pw_posterior_9.pkl','rb') as handle:
+        full_prior = pickle.load(handle)
+elif bayes_iter == 4:
+    with open(f'./../notebooks/l23_sel_mod_pw_posterior_10.pkl','rb') as handle:
         full_prior = pickle.load(handle)
 else:
     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
