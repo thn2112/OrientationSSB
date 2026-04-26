@@ -13,12 +13,13 @@ from scipy.stats import norm,gamma
 import analyze_func as af
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--job_id', '-i', help='completely arbitrary job id label',type=int, default=0)
+parser.add_argument('--batch_iter', '-bi', help='initial candidate',type=int, default=0)
+parser.add_argument('--per_batch', '-pb', help='number candidates per run',type=int, default=1)
 args = vars(parser.parse_args())
-job_id = int(args['job_id'])
+batch_iter = int(args['batch_iter'])
+per_batch = int(args['per_batch'])
 
-print("Job ID:", job_id)
-
+print("Running candidates:", range(batch_iter*per_batch,(batch_iter+1)*per_batch))
 device = torch.device("cpu")
 
 # Define where to save results
@@ -30,11 +31,10 @@ res_dir = res_dir + 'sim_l23_candidates/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
-res_file = res_dir + 'candidate={:d}.pkl'.format(job_id)
+res_file = res_dir + 'candidate={:d}-{:d}.pkl'.format(init_iter, init_iter+batch_iter-1)
 
 with open('./../notebooks/l23_candidate_prms.pkl', 'rb') as handle:
     candidate_prms = pickle.load(handle)
-this_theta = candidate_prms[job_id:job_id+1].to(device)
 
 # load L4 responses
 def load_l4_rates(file):
@@ -384,13 +384,16 @@ def sheet_simulator(theta,file):
     
     return out[0], raps[0], corr_curve[0]
 
-xs = torch.zeros((2,19),dtype=torch.float32,device=device)
-raps = torch.zeros((2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
-corr_curves = torch.zeros((2,nbins),dtype=torch.float32,device=device)
+xs = torch.zeros((per_batch,2,19),dtype=torch.float32,device=device)
+raps = np.zeros((per_batch,2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
+corr_curves = np.zeros((per_batch,2,nbins),dtype=torch.float32,device=device)
 
-xs[0,:], raps[0,:], corr_curves[0,:] = sheet_simulator(this_theta, './../results/L4_sel/seed=0.pkl')
-xs[1,:], raps[1,:], corr_curves[1,:] = sheet_simulator(this_theta, './../results/L4_sel/band_seed=0.pkl')
+init_iter = batch_iter * per_batch
+for i in range(per_batch):
+    this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
+    xs[i,0,:], raps[i,0,:], corr_curves[i,0,:] = sheet_simulator(this_theta, './../results/L4_sel/seed=0.pkl')
+    xs[i,1,:], raps[i,1,:], corr_curves[i,1,:] = sheet_simulator(this_theta, './../results/L4_sel/band_seed=0.pkl')
 
-res_dict = {'x': xs.cpu(), 'raps': raps.cpu(), 'corr_curves': corr_curves.cpu()}
+res_dict = {'x': xs, 'raps': raps, 'corr_curves': corr_curves}
 with open(res_file, 'wb') as handle:
     pickle.dump(res_dict, handle)

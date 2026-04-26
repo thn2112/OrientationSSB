@@ -86,13 +86,14 @@ def runjobs():
         os.makedirs(resultsdir)
 
     time.sleep(0.2)
-    jobs = 20
+    per_batch = 5
+    n_batch_iters = 5
 
     #--------------------------------------------------------------------------
     # Make SBTACH
     inpath = currwd + "/sim_l23_candidates.py"
-    c1 = "{:s} -i $SLURM_ARRAY_TASK_ID".format(
-        inpath,num_samp,bayes_iter)
+    c1 = "{:s} -bi $SLURM_ARRAY_TASK_ID -pb {:d}".format(
+        inpath, per_batch)
     jobname="sim_l23_candidates"
 
     if not args2.test:
@@ -103,7 +104,7 @@ def runjobs():
         if cluster=='haba' or cluster=='moto' or cluster=='burg':
             text_file.write("#SBATCH --account=theory \n")
         text_file.write("#SBATCH --job-name="+jobname+ "\n")
-        text_file.write("#SBATCH -t 0-1:29  \n")
+        text_file.write("#SBATCH -t 0-9:59  \n")
         text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
         # text_file.write("#SBATCH --gres=gpu\n")
         text_file.write("#SBATCH -c 1 \n")
@@ -115,9 +116,9 @@ def runjobs():
         text_file.close()
 
         if cluster=='axon':
-            os.system(f"sbatch -a 0-{jobs-1} -p burst " +jobnameDir);
+            os.system(f"sbatch -a 0-{n_batch_iters-1} -p burst " +jobnameDir);
         else:
-            os.system(f"sbatch -a 0-{jobs-1} " +jobnameDir);
+            os.system(f"sbatch -a 0-{n_batch_iters-1} " +jobnameDir);
     else:
         print (c1)
 
