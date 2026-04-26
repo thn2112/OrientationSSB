@@ -10,10 +10,7 @@ from scipy import integrate
 from scipy.signal import argrelmin,argrelmax
 from scipy.stats import norm,gamma
 
-from sbi.utils.user_input_checks import process_prior
-
 import analyze_func as af
-from sbi_func import PostTimesBoxUniform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--job_id', '-i', help='completely arbitrary job id label',type=int, default=0)
