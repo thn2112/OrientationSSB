@@ -82,15 +82,24 @@ lgn_dir = './../results/' + '2d_lgn_{:s}_spikes_nw={:d}_ns={:d}_nh={:.2f}_ng={:d
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
     
+# sig2 = 0.00095
+# s_n = 0.46638972 * np.sqrt(sig2)
+# s_b = 3.1936202 * np.sqrt(sig2)
+# broad_frac_e = 0.74130374
+# broad_frac_i = 0.5984383
+# log10JEE = -0.7561108
+# log10JEI = -1.1950144
+# log10JIE = -0.9078631
+# log10JII = -1.4561069
 sig2 = 0.00095
-s_n = 0.46638972 * np.sqrt(sig2)
-s_b = 3.1936202 * np.sqrt(sig2)
-broad_frac_e = 0.74130374
-broad_frac_i = 0.5984383
-log10JEE = -0.7561108
-log10JEI = -1.1950144
-log10JIE = -0.9078631
-log10JII = -1.4561069
+s_n = 0.05 * np.sqrt(sig2)
+s_b = 2.2990687 * np.sqrt(sig2)
+broad_frac_e = 1.3001949
+broad_frac_i = 1.3414183
+log10JEE = -0.60524154
+log10JEI = -1.4209754
+log10JIE = -0.59155685
+log10JII = -1.5301344
 
 w_prm_dict = {
     's_n':          s_n,
