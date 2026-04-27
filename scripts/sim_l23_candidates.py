@@ -31,7 +31,8 @@ res_dir = res_dir + 'sim_l23_candidates/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
-res_file = res_dir + 'candidate={:d}-{:d}.pkl'.format(init_iter, init_iter+batch_iter-1)
+init_iter = batch_iter * per_batch
+res_file = res_dir + 'candidate={:d}-{:d}.pkl'.format(init_iter, init_iter+per_batch-1)
 
 with open('./../notebooks/l23_candidate_prms.pkl', 'rb') as handle:
     candidate_prms = pickle.load(handle)
@@ -388,7 +389,6 @@ xs = torch.zeros((per_batch,2,19),dtype=torch.float32,device=device)
 raps = np.zeros((per_batch,2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
 corr_curves = np.zeros((per_batch,2,nbins),dtype=torch.float32,device=device)
 
-init_iter = batch_iter * per_batch
 for i in range(per_batch):
     this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
     xs[i,0,:], raps[i,0,:], corr_curves[i,0,:] = sheet_simulator(this_theta, './../results/L4_sel/seed=0.pkl')
