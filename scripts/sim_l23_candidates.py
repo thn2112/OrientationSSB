@@ -83,7 +83,7 @@ norm_dist = norm()
 
 # define simulation functions
 def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,kern_i,het_lev,N,ne,ni,threshe,threshi,
-                    t0,dt,Nt,tsamp=None,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7):
+                    t0,dt,Nt,tsamp=None,ta=0.01,tn=0.300,tg=0.01,frac_n=0.7,seed=0):
     '''
     Integrate 2D sheet with AMPA, NMDA, and GABA receptor dynamics.
     xe0, xi0: initial excitatory and inhibitory activity
@@ -110,7 +110,7 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,ker
     xin = xin0.copy()
     xig = xig0.copy()
     
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(seed)
     
     if np.isscalar(Jee):
         gam_dist = gamma(a=1/(het_lev**2),scale=het_lev**2)
@@ -231,7 +231,7 @@ def get_J(theta):
     
     return Jee,Jei,Jie,Jii
 
-def get_sheet_resps(theta,N,L4_rates_itp):
+def get_sheet_resps(theta,N,L4_rates_itp,seed=0):
     Jee,Jei,Jie,Jii = get_J(theta)
     Jee *= 10**theta[:,9]
     Jei *= 10**theta[:,9]
@@ -267,12 +267,12 @@ def get_sheet_resps(theta,N,L4_rates_itp):
                                     ff_inp,Jee[prm_idx].item(),Jei[prm_idx].item(),
                                     Jie[prm_idx].item(),Jii[prm_idx].item(),
                                     kern_e,kern_i,theta[prm_idx,6].item(),N,2,2,
-                                    thresh_e,thresh_i,0,dt,nwrm+nint*nphs,tsamp)
+                                    thresh_e,thresh_i,0,dt,nwrm+nint*nphs,tsamp,seed=seed)
             resps[prm_idx,:,:,ori_idx,:] = resp.transpose((2,0,1,3))
         
     return resps
 
-def sheet_simulator(theta,file):
+def sheet_simulator(theta,file,seed=0):
     '''
     theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
     theta[:,1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
@@ -299,7 +299,7 @@ def sheet_simulator(theta,file):
     
     L4_rates_itp, L4_rate_opm = load_l4_rates(file)
     
-    resps = get_sheet_resps(theta,N,L4_rates_itp)
+    resps = get_sheet_resps(theta,N,L4_rates_itp,seed=seed)
     
     opm,mr = af.calc_OPM_MR(resps[:,0,:,:,:])
     os = np.abs(opm)
@@ -385,14 +385,18 @@ def sheet_simulator(theta,file):
     
     return out[0], raps[0], corr_curve[0]
 
-xs = torch.zeros((per_batch,2,19),dtype=torch.float32,device=device)
-raps = np.zeros((per_batch,2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
-corr_curves = np.zeros((per_batch,2,nbins),dtype=torch.float32,device=device)
+n_seed = 3
+xs = torch.zeros((per_batch,n_seed,2,19),dtype=torch.float32,device=device)
+raps = np.zeros((per_batch,n_seed,2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
+corr_curves = np.zeros((per_batch,n_seed,2,nbins))
 
 for i in range(per_batch):
     this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
-    xs[i,0,:], raps[i,0,:], corr_curves[i,0,:] = sheet_simulator(this_theta, './../results/L4_sel/seed=0.pkl')
-    xs[i,1,:], raps[i,1,:], corr_curves[i,1,:] = sheet_simulator(this_theta, './../results/L4_sel/band_seed=0.pkl')
+    for s in range(n_seed):
+        xs[i,s,0,:], raps[i,s,0,:], corr_curves[i,s,0,:] = sheet_simulator(this_theta,
+            f'./../results/L4_sel/seed={s}.pkl',seed=s)
+        xs[i,s,1,:], raps[i,s,1,:], corr_curves[i,s,1,:] = sheet_simulator(this_theta,
+            f'./../results/L4_sel/band_seed={s}.pkl',seed=s)
 
 res_dict = {'x': xs, 'raps': raps, 'corr_curves': corr_curves}
 with open(res_file, 'wb') as handle:
