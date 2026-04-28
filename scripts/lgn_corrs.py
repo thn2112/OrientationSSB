@@ -42,7 +42,7 @@ vis_rb = 12 # Hz
 vis_rm = 40 # Hz
 vis_ibi = 3.6 # s
 vis_dur = 1.2 # s
-vis_stim_dur = vis_dur/n_stim # s
+vis_stim_dur = vis_dur/nstim # s
 
 def comp_corrs(mode,time_mask=None):
     spikes = np.zeros((1,2*ngrid**2),np.ushort)
