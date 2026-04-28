@@ -8,7 +8,10 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,ker
     ks[ks > 0.5] = ks[ks > 0.5] - 1
     kxs,kys = np.meshgrid(ks*N,ks*N)
     ks = np.sqrt(kxs**2 + kys**2)
-    kpol = 1/(np.sqrt(sig2)*pol_scale)
+    if np.isscalar(pol_scale):
+        kpol = 1/(np.sqrt(sig2)*pol_scale)
+    else:
+        kpol = np.concatenate((1/(np.sqrt(sig2)*pol_scale[:-1]),[pol_scale[-1]]))
     
     if kern_type == 'bandpass':
         k_kern = ks*np.exp(0.125-2*(ks - 0.75*kpol)**2/kpol**2)
@@ -16,6 +19,8 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,ker
         k_kern = np.exp(-0.5*(ks/kpol)**2)
     elif kern_type == 'highpass':
         k_kern = 1 - np.exp(-0.5*(ks/kpol)**2)
+    elif kern_type == 'bandplushighpass':
+        k_kern = ks*np.exp(0.125-2*(ks - 0.75*kpol[1])**2/kpol[1]**2) + kpol[2]*(1 - np.exp(-0.5*(ks/kpol[0])**2))
 
     if EI_match:
         # polmap = (np.fft.ifft2(k_kern*\
