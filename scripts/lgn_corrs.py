@@ -31,6 +31,19 @@ nbins = np.round(ngrid/np.sqrt(2)).astype(int)
 step = max_val/ngrid / nbins
 dist_bins = np.digitize(dists,np.linspace(0,max_val/ngrid,nbins+1) + step/2)
 
+dt = 0.1 # s
+
+spnt_rb = 0 # Hz
+spnt_rm = 16 # Hz
+spnt_ibi = 14.4 # s
+spnt_dur = 14.4 # s
+
+vis_rb = 12 # Hz
+vis_rm = 40 # Hz
+vis_ibi = 3.6 # s
+vis_dur = 1.2 # s
+vis_stim_dur = vis_dur/n_stim # s
+
 def comp_corrs(mode,time_mask=None):
     spikes = np.zeros((1,2*ngrid**2),np.ushort)
     for i in range(50):
@@ -38,17 +51,15 @@ def comp_corrs(mode,time_mask=None):
             format(mode,nwave,nstim,nshrink,ngrid,i), 'rb') as handle:
             res_dict = pickle.load(handle)
         spikes = np.concatenate((spikes,res_dict['spikes']),axis=0)
-        
-    dt = 0.1
-
-    times = np.arange(len(spikes)) * 0.1
-    sweeping = (np.mod(np.round(times/dt),np.round(3.6/dt)) >= np.round(1.2/dt)) \
-        & (np.mod(np.round(times/dt),np.round(3.6/dt)) <= 2*np.round(1.2/dt))
+    
+    times = np.arange(len(spikes)) * dt
+    sweeping = (np.mod(np.round(times/dt),np.round(vis_ibi/dt)) >= np.round(vis_dur/dt)) \
+        & (np.mod(np.round(times/dt),np.round(vis_ibi/dt)) <= 2*np.round(vis_dur/dt))
         
     if time_mask == 'sweeping':
-        spikes = spikes[:,sweeping]
+        spikes = spikes[sweeping]
     elif time_mask == 'non_sweeping':
-        spikes = spikes[:,~sweeping]
+        spikes = spikes[~sweeping]
     corrs = np.corrcoef(spikes.T)
     
     corr_curve = np.zeros((2,nbins))
@@ -66,7 +77,7 @@ def comp_corrs(mode,time_mask=None):
 res_dict = {}
 for mode,time_mask in zip(['spont','vis','spont_vis'],['non_sweeping','sweeping',None]):
     try:
-        corr_curve = comp_corrs(mode)
+        corr_curve = comp_corrs(mode,time_mask)
         res_dict[mode] = corr_curve
     except:
         print('Error in mode {:s}'.format(mode))
