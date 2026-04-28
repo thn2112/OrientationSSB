@@ -26,7 +26,10 @@ dists = np.sqrt(np.fmin(np.abs(xs[:,None]-xs[None,:]),
                 np.fmin(np.abs(ys[:,None]-ys[None,:]),
                         1-np.abs(ys[:,None]-ys[None,:]))**2)
 
-dist_bins = np.digitize(dists,np.linspace(0,1/np.sqrt(2),13))
+max_val = np.round(ngrid/np.sqrt(2)).astype(int)
+nbins = np.round(ngrid/np.sqrt(2)).astype(int)
+step = max_val/ngrid / nbins
+dist_bins = np.digitize(dists,np.linspace(0,max_val/ngrid,nbins+1) + step/2)
 
 def comp_corrs(mode):
     spikes = np.zeros((1,2*ngrid**2),np.ushort)
@@ -37,15 +40,16 @@ def comp_corrs(mode):
         spikes = np.concatenate((spikes,res_dict['spikes']),axis=0)
         
     corrs = np.corrcoef(spikes.T)
-    corr_curve = np.zeros((2,13))
+    print(corrs.shape)
+    corr_curve = np.zeros((2,nbins))
     
-    for i in range(13):
+    for i in range(nbins):
         idxs = dist_bins == i
-        corr_curve[0] += 0.5*np.mean(corrs[:ngrid**2,:ngrid**2][idxs])
-        corr_curve[0] += 0.5*np.mean(corrs[ngrid**2:,ngrid**2:][idxs])
+        corr_curve[0,i] += 0.5*np.mean(corrs[:ngrid**2,:ngrid**2][idxs])
+        corr_curve[0,i] += 0.5*np.mean(corrs[ngrid**2:,ngrid**2:][idxs])
 
-        corr_curve[1] += 0.5*np.mean(corrs[:ngrid**2,ngrid**2:][idxs])
-        corr_curve[1] += 0.5*np.mean(corrs[ngrid**2:,:ngrid**2][idxs])
+        corr_curve[1,i] += 0.5*np.mean(corrs[:ngrid**2,ngrid**2:][idxs])
+        corr_curve[1,i] += 0.5*np.mean(corrs[ngrid**2:,:ngrid**2][idxs])
         
     return corr_curve
 
