@@ -221,13 +221,25 @@ def ellipse_gauss_func(X, a, b, tht, A, x0, y0):
     dy_rot = -(x - x0) * np.sin(tht) + (y - y0) * np.cos(tht)
     return A * np.exp(-(dx_rot**2 / a**2 + dy_rot**2 / b**2))
 
+def gabor_func(X, a, b, f, tht, phi, A, x0, y0):
+    x, y = X
+    dx_rot = (x - x0) * np.cos(tht) + (y - y0) * np.sin(tht)
+    dy_rot = -(x - x0) * np.sin(tht) + (y - y0) * np.cos(tht)
+    return A * np.exp(-(dx_rot**2 / a**2 + dy_rot**2 / b**2)) * np.sin(2 * np.pi * f * dx_rot + phi)
+
+def wave_func(X, a, b, f, tht, phi, A, x0, y0):
+    x, y = X
+    dx_rot = (x - x0) * np.cos(tht) + (y - y0) * np.sin(tht)
+    dy_rot = -(x - x0) * np.sin(tht) + (y - y0) * np.cos(tht)
+    return A * np.sin(2 * np.pi * f * dx_rot + phi)
+
 def ellipse_gauss_fit(field):
     n = field.shape[0]
     x,y = np.mgrid[:n,:n]
     props = regionprops((field > 0).astype(int))[0]
     
-    p0 = (props['major_axis_length']/2,
-          props['minor_axis_length']/2,
+    p0 = (props['axis_major_length']/2,
+          props['axis_minor_length']/2,
           props['orientation'],
           np.max(field),
           props['centroid'][0],
@@ -245,17 +257,64 @@ def ellipse_gauss_fit(field):
     if popt[2] > np.pi/2:
         popt[2] -= np.pi
     
-    popt[0] *= np.sqrt(8)
-    popt[1] *= np.sqrt(8)
+    return popt,pcov
+
+def gabor_fit(on_field,of_field):
+    n = on_field.shape[0]
+    x,y = np.mgrid[:n,:n]
+    sum_props = regionprops(((on_field+of_field) > 0).astype(int))[0]
+    on_props = regionprops((on_field > 0).astype(int))[0]
+    of_props = regionprops((of_field > 0).astype(int))[0]
+    
+    p0 = (sum_props['axis_major_length']/2,
+          sum_props['axis_minor_length']/2,
+          1/np.sqrt((on_props['centroid'][0]-of_props['centroid'][0])**2+\
+              (on_props['centroid'][1]-of_props['centroid'][1])**2),
+          np.atan2(on_props['centroid'][1]-of_props['centroid'][1],on_props['centroid'][0]-of_props['centroid'][0]),
+          0,
+          np.max(on_field+of_field),
+          sum_props['centroid'][0],
+          sum_props['centroid'][1])
+    
+    popt,pcov = curve_fit(gabor_func, np.array([x.flatten(), y.flatten()]), (on_field-of_field).flatten(),
+                          p0=p0, maxfev=1000000)
+    
+    popt[0] = np.abs(popt[0])
+    popt[1] = np.abs(popt[1])
+    if popt[5] < 0:
+        popt[5] = -popt[5]
+        popt[2] = -popt[2]
+        # popt[4] = popt[4] + np.pi
+    if popt[2] < 0:
+        popt[2] = -popt[2]
+        popt[4] = popt[4] + np.pi
+    popt[3] = np.mod(popt[3], np.pi)
+    if popt[3] > np.pi/2:
+        popt[3] -= np.pi
+    popt[4] = np.mod(popt[4], 2*np.pi)
+    if popt[4] > np.pi:
+        popt[4] -= 2*np.pi
     
     return popt,pcov
 
 def gaussprops(field):
     popt,_ = ellipse_gauss_fit(field)
     return {
-        'axis_major_length': popt[0],
-        'axis_minor_length': popt[1],
+        'axis_major_length': popt[0]*np.sqrt(8),
+        'axis_minor_length': popt[1]*np.sqrt(8),
         'orientation': popt[2],
         'centroid': (popt[4], popt[5]),
-        'area': np.pi * popt[0] * popt[1]
+        'area': np.pi * popt[0] * popt[1] * 8
+    }
+
+def gaborprops(on_field,of_field):
+    popt,_ = gabor_fit(on_field,of_field)
+    return {
+        'axis_wave_length': popt[0]*np.sqrt(8),
+        'axis_perp_length': popt[1]*np.sqrt(8),
+        'frequency': popt[2],
+        'orientation': popt[3],
+        'phase': popt[4],
+        'centroid': (popt[6], popt[7]),
+        'area': np.pi * popt[0] * popt[1] * 8
     }

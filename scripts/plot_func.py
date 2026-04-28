@@ -22,12 +22,16 @@ def ytitle(ax,text,xloc=-0.25,**kwargs):
         multialignment='center',rotation='vertical',transform=ax.transAxes,**kwargs)
     
 def add_cbar(fig,ax,plot,orientation='vertical',**kwargs):
+    cax = add_subax(ax,orientation)
+    return fig.colorbar(plot, cax=cax, orientation=orientation, **kwargs)
+
+def add_subax(ax,orientation,size='5%',pad=0.05):
     divider = make_axes_locatable(ax)
     if orientation=='vertical':
-        cax = divider.append_axes('right', size='5%', pad=0.05)
+        subax = divider.append_axes('right', size=size, pad=pad)
     else:
-        cax = divider.append_axes('bottom', size='5%', pad=0.05)
-    return fig.colorbar(plot, cax=cax, orientation=orientation, **kwargs)
+        subax = divider.append_axes('bottom', size=size, pad=pad)
+    return subax
     
 def imshowticks(ax,xvals,yvals,xskip=1,yskip=1,xfmt=None,yfmt=None):
     if xfmt is None:
@@ -180,11 +184,13 @@ def domcolbar(fig,ax,A,hide_ticks=True,rlim=None,alim=None,**kwargs):
     ax.imshow(rgb,**kwargs)
     return cbars
 
-def violin(ax,data,colors=None,linestyles=None,show_points=False):
+def violin(ax,data,colors=None,linestyles=None,fills=None,show_points=False):
     if colors is None:
         colors = [f'C{idx%len(data)}' for idx in range(len(data))]
     if linestyles is None:
         linestyles = ['-' for idx in range(len(data))]
+    if fills is None:
+        fills = [True for idx in range(len(data))]
     if np.isscalar(show_points):
         show_points = [show_points]*len(data)
         
@@ -199,7 +205,13 @@ def violin(ax,data,colors=None,linestyles=None,show_points=False):
     medians = np.zeros(len(data))
     for idx,pc in enumerate(parts['bodies']):
         pc.set_alpha(0.2)
-        pc.set_facecolor(colors[idx])
+        pc.set_linestyle(linestyles[idx])
+        if fills[idx]:
+            pc.set_facecolor(colors[idx])
+            pc.set_edgecolor(colors[idx])
+        else:
+            pc.set_facecolor('none')
+            pc.set_edgecolor(colors[idx])
         quartile1[idx] = np.percentile(data[idx], 25)
         medians[idx] = np.percentile(data[idx], 50)
         quartile3[idx] = np.percentile(data[idx], 75)
@@ -236,7 +248,10 @@ def add_p_star(fig,ax,x1,x2,y,nstar):
         text = '∗∗∗'
         width = 0.275
         
-    ax.add_line(lines.Line2D([x1,x2],[y,y],lw=1,color='k',clip_on=False))
-    t = ax.text((x1+x2)/2,y,text,ha='center',va='center',clip_on=False)
-    width = t.get_window_extent(renderer=fig.canvas.get_renderer()).transformed(ax.transData.inverted()).width
-    ax.add_line(lines.Line2D([(x1+x2)/2-width/2,(x1+x2)/2+width/2],[y,y],lw=2,color='w',clip_on=False))
+    if x2 is not None:
+        ax.add_line(lines.Line2D([x1,x2],[y,y],lw=1,color='k',clip_on=False))
+        t = ax.text((x1+x2)/2,y,text,ha='center',va='center',clip_on=False)
+        width = t.get_window_extent(renderer=fig.canvas.get_renderer()).transformed(ax.transData.inverted()).width
+        ax.add_line(lines.Line2D([(x1+x2)/2-width/2,(x1+x2)/2+width/2],[y,y],lw=2,color='w',clip_on=False))
+    else:
+        ax.text(x1,y,text,ha='center',va='center',clip_on=False)

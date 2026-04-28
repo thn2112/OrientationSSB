@@ -16,16 +16,13 @@ import map_func as mf
 from sbi_func import PostTimesBoxUniform
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--job_id', '-i', help='completely arbitrary job id label',type=int, default=0)
-parser.add_argument('--num_samp', '-ns', help='number of samples',type=int, default=50)
-parser.add_argument('--bayes_iter', '-bi', help='bayessian inference interation (0 = use prior, 1 = use first posterior)',type=int, default=0)
+parser.add_argument('--batch_iter', '-bi', help='initial candidate',type=int, default=0)
+parser.add_argument('--per_batch', '-pb', help='number candidates per run',type=int, default=1)
 args = vars(parser.parse_args())
-job_id = int(args['job_id'])
-num_samp = int(args['num_samp'])
-bayes_iter = int(args['bayes_iter'])
+batch_iter = int(args['batch_iter'])
+per_batch = int(args['per_batch'])
 
-print("Bayesian iteration:", bayes_iter)
-print("Job ID:", job_id)
+print("Running candidates:", range(batch_iter*per_batch,(batch_iter+1)*per_batch))
 
 device = torch.device("cpu")
 
@@ -34,48 +31,17 @@ res_dir = './../results/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
-res_dir = res_dir + 'sbi_l4_sel_mod_highpass_pol/'
+res_dir = res_dir + 'sim_l4_candidates/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
-res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
+init_iter = batch_iter * per_batch
+res_file = res_dir + 'candidate={:d}-{:d}.pkl'.format(init_iter, init_iter+per_batch-1)
 
-# create prior distribution
-if bayes_iter == 0:
-    '''
-    theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
-    theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
-    theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
-    theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
-    theta[:,4] = s_b
-    theta[:,5] = log2(Je_broad / Je_narrow)
-    theta[:,6] = log2(Ji_broad / Ji_narrow)
-    '''
-    # load posterior of phase ring connectivity parameters
-    full_prior = BoxUniform(low =torch.tensor([0.0,-0.5,-2.5,-2.0, 0.5,-1.5,-1.5],device=device),
-                            high=torch.tensor([1.0, 1.0,-0.5, 1.0, 4.0, 1.5, 1.5],device=device),)
-else:
-    with open(f'./../notebooks/l4_highpass_pol_posterior_{bayes_iter:d}.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
+with open('./../notebooks/l4_candidate_prms.pkl', 'rb') as handle:
+    candidate_prms = pickle.load(handle)
 
-# create L4 orientation map
-N = 60
-
-rng = np.random.default_rng(0)
-opm_fft = rng.normal(size=(N,N)) + 1j * rng.normal(size=(N,N))
-opm_fft[0,0] = 0 # remove DC component
-freqs = np.fft.fftfreq(N,1/N)
-freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
-
-decay = 5
-opm_fft *= np.exp(-freqs/decay)
-
-omap = np.fft.ifft2(opm_fft)
-omap *= np.abs(omap)**1.6/np.abs(omap)
-omap *= 0.16 / np.median(np.abs(omap)) # normalize median to data
-omap *= np.clip(np.abs(omap),0,0.8) / np.abs(omap) # clip max os to 0.8
-
-# compute elongation of each rf
+# compute relationship between elongation and OS
 oris = np.linspace(0,np.pi,100,endpoint=False) - np.pi/2
 phss = np.linspace(0,2*np.pi,100,endpoint=False) - np.pi
 
@@ -90,20 +56,41 @@ oss,_ = af.calc_OS_MR(resps)
 
 gam_os_itp = interpolate.interp1d(oss,gams,fill_value='extrapolate')
 
-gam_map = gam_os_itp(np.abs(omap))
+# create L4 orientation, polarity, and scatter map
+N = 60
 
 # compute rf scatter and ON/OFF bias maps
 sig2 = 0.00095
 
 rf_sct_scale = 0.8
-pol_scale = 10
-L_mm = N/11
+pol_scale = np.array([10,5,5])
+L_mm = N/6
 mag_fact = 0.02
 # L_deg = L_mm / np.sqrt(mag_fact)
 L_deg = 5.99/0.06
 grate_freq = 0.06
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='highpass')
+def gen_maps(seed):
+    rng = np.random.default_rng(seed)
+    opm_fft = rng.normal(size=(N,N)) + 1j * rng.normal(size=(N,N))
+    opm_fft[0,0] = 0 # remove DC component
+    freqs = np.fft.fftfreq(N,1/N)
+    freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
+
+    decay = 5
+    opm_fft *= np.exp(-freqs/decay)
+
+    omap = np.fft.ifft2(opm_fft)
+    omap *= np.abs(omap)**1.6/np.abs(omap)
+    omap *= 0.16 / np.median(np.abs(omap)) # normalize median to data
+    omap *= np.clip(np.abs(omap),0,0.8) / np.abs(omap) # clip max os to 0.8
+    
+    sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass',
+                                      seed=seed)
+
+    gam_map = gam_os_itp(np.abs(omap))
+    
+    return gam_map, omap, sctmap, polmap
 
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
 dxs = np.abs(xs[:,:,None,None] - xs[None,None,:,:])
@@ -265,7 +252,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
     theta[:,4] = s_b
     theta[:,5] = log2(Je_broad / Je_narrow)
-    theta[:,6] = log2(Ji_broad / Ji_narrow)
+    theta[:,7] = log2(Ji_broad / Ji_narrow)
     
     returns: resps, array of shape (theta.shape[0],2,N**2,nori=8,nphs=8)
     '''
@@ -307,7 +294,7 @@ def get_sheet_resps(theta,N,gam_map,ori_map,rf_sct_map,pol_map):
         
     return resps
 
-def sheet_simulator(theta):
+def sheet_simulator(theta,seed=0):
     '''
     theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
     theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
@@ -315,7 +302,7 @@ def sheet_simulator(theta):
     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
     theta[:,4] = s_b
     theta[:,5] = log2(Je_broad / Je_narrow)
-    theta[:,6] = log2(Ji_broad / Ji_narrow)
+    theta[:,7] = log2(Ji_broad / Ji_narrow)
     
     returns: [q1_os,q2_os,q3_os,mu_os,sig_os,q1_mr,q2_mr,q3_mr,mu_mr,sig_mr,mu_mm,var_t]
     os = excitatory orientation selectivity
@@ -325,6 +312,8 @@ def sheet_simulator(theta):
     '''
     
     _,_,_,Jii = get_J(theta)
+    
+    gam_map, omap, sctmap, polmap = gen_maps(seed=seed)
     
     resps = get_sheet_resps(theta,N,gam_map,np.angle(omap)/2,sctmap,polmap)
     
@@ -355,30 +344,24 @@ def sheet_simulator(theta):
     out[:,11] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
     out[:,12] = torch.tensor(var_r,dtype=theta.dtype).to(theta.device)
     
-    valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4)) & (Jii < 0)
-    
-    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
+    return out[0], raps[0]
 
-thetas = torch.zeros((0,7))
-xs = torch.zeros((0,13))
+n_pert = 5
+n_seed = 1
+ts = torch.zeros((per_batch,n_pert,n_seed,19),dtype=torch.float32,device=device)
+xs = torch.zeros((per_batch,n_pert,n_seed,19),dtype=torch.float32,device=device)
+raps = np.zeros((per_batch,n_pert,n_seed,int(np.round(np.ceil(N//2*np.sqrt(2))))))
 
-while thetas.shape[0] < num_samp:
-    this_samps = min(1, num_samp - thetas.shape[0])
-    
-    start = time.process_time()
-    # sample from prior
-    theta = full_prior.sample((this_samps,))
-    # simulate sheet
-    x = sheet_simulator(theta)
+for i in range(per_batch):
+    this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
+    ts[i,0,s,:] = this_theta
+    ts[i,1:,s,:] = this_theta[None,:] * torch.concat((torch.ones((n_pert-1,2),device=device),
+                                                      torch.randn((n_pert-1,2),device=device)*0.005,
+                                                      1+torch.randn((n_pert-1,3),device=device)*0.05),dim=1)
+    for p in range(n_pert):
+        for s in range(n_seed):
+            xs[i,p,s,:], raps[i,p,s,:] = sheet_simulator(ts[i,p,s,:],seed=s)
 
-    thetas = torch.cat([thetas,theta],dim=0)
-    xs = torch.cat([xs,x],dim=0)
-
-    print(f'Simulating samples took',time.process_time() - start,'s\n')
-
-    # save results
-    with open(res_file, 'wb') as handle:
-        pickle.dump({
-            'theta': thetas,
-            'x': xs,
-        }, handle)
+res_dict = {'t': ts, 'x': xs, 'raps': raps}
+with open(res_file, 'wb') as handle:
+    pickle.dump(res_dict, handle)
