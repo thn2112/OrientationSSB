@@ -365,7 +365,7 @@ thetas = torch.zeros((0,7))
 xs = torch.zeros((0,13))
 
 while thetas.shape[0] < num_samp:
-    this_samps = min(1, num_samp - thetas.shape[0])
+    this_samps = min(30, num_samp - thetas.shape[0])
     
     start = time.process_time()
     # sample from prior
