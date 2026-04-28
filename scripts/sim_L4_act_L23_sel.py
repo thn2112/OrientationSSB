@@ -255,7 +255,7 @@ def get_sheet_resps(params,N):
     nori = n_ori
     nphs = n_phs
     nint = 5
-    nwrm = 4 * nint * nphs
+    nwrm = 6 * nint * nphs
     dt = 1 / (nint * nphs * 3)
     
     kern_e = np.exp(-(dss/params[4])**2)
