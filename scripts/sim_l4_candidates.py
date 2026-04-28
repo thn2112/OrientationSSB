@@ -8,12 +8,8 @@ import torch
 from scipy import interpolate
 from scipy import integrate
 
-from sbi.utils.user_input_checks import process_prior
-from sbi.utils import BoxUniform
-
 import analyze_func as af
 import map_func as mf
-from sbi_func import PostTimesBoxUniform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_iter', '-bi', help='initial candidate',type=int, default=0)
@@ -356,7 +352,7 @@ for i in range(per_batch):
     this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
     ts[i,0,s,:] = this_theta
     ts[i,1:,s,:] = this_theta[None,:] * torch.concat((torch.ones((n_pert-1,2),device=device),
-                                                      torch.randn((n_pert-1,2),device=device)*0.005,
+                                                      1+torch.randn((n_pert-1,2),device=device)*0.005,
                                                       1+torch.randn((n_pert-1,3),device=device)*0.05),dim=1)
     for p in range(n_pert):
         for s in range(n_seed):
