@@ -31,7 +31,7 @@ nbins = np.round(ngrid/np.sqrt(2)).astype(int)
 step = max_val/ngrid / nbins
 dist_bins = np.digitize(dists,np.linspace(0,max_val/ngrid,nbins+1) + step/2)
 
-def comp_corrs(mode):
+def comp_corrs(mode,time_mask=None):
     spikes = np.zeros((1,2*ngrid**2),np.ushort)
     for i in range(50):
         with open('./../results/2d_lgn_{:s}_spikes_nw={:d}_ns={:d}_nh={:.2f}_ng={:d}/seed={:d}.pkl'.\
@@ -39,8 +39,18 @@ def comp_corrs(mode):
             res_dict = pickle.load(handle)
         spikes = np.concatenate((spikes,res_dict['spikes']),axis=0)
         
+    dt = 0.1
+
+    times = np.arange(len(spikes)) * 0.1
+    sweeping = (np.mod(np.round(times/dt),np.round(3.6/dt)) >= np.round(1.2/dt)) \
+        & (np.mod(np.round(times/dt),np.round(3.6/dt)) <= 2*np.round(1.2/dt))
+        
+    if time_mask == 'sweeping':
+        spikes = spikes[:,sweeping]
+    elif time_mask == 'non_sweeping':
+        spikes = spikes[:,~sweeping]
     corrs = np.corrcoef(spikes.T)
-    print(corrs.shape)
+    
     corr_curve = np.zeros((2,nbins))
     
     for i in range(nbins):
@@ -54,8 +64,7 @@ def comp_corrs(mode):
     return corr_curve
 
 res_dict = {}
-
-for mode in ['spont','vis','spont_vis']:
+for mode,time_mask in zip(['spont','vis','spont_vis'],['non_sweeping','sweeping',None]):
     try:
         corr_curve = comp_corrs(mode)
         res_dict[mode] = corr_curve
