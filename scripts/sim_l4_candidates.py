@@ -344,19 +344,19 @@ def sheet_simulator(theta,seed=0):
 
 n_pert = 5
 n_seed = 1
-ts = torch.zeros((per_batch,n_pert,n_seed,19),dtype=torch.float32,device=device)
-xs = torch.zeros((per_batch,n_pert,n_seed,19),dtype=torch.float32,device=device)
+ts = torch.zeros((per_batch,n_pert,7),dtype=torch.float32,device=device)
+xs = torch.zeros((per_batch,n_pert,n_seed,13),dtype=torch.float32,device=device)
 raps = np.zeros((per_batch,n_pert,n_seed,int(np.round(np.ceil(N//2*np.sqrt(2))))))
 
 for i in range(per_batch):
     this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
-    ts[i,0,s,:] = this_theta
-    ts[i,1:,s,:] = this_theta[None,:] * torch.concat((torch.ones((n_pert-1,2),device=device),
+    ts[i,0,:] = this_theta[0]
+    ts[i,1:,:] = (this_theta * torch.concat((torch.ones((n_pert-1,2),device=device),
                                                       1+torch.randn((n_pert-1,2),device=device)*0.005,
-                                                      1+torch.randn((n_pert-1,3),device=device)*0.05),dim=1)
+                                                      1+torch.randn((n_pert-1,3),device=device)*0.05),dim=1))
     for p in range(n_pert):
         for s in range(n_seed):
-            xs[i,p,s,:], raps[i,p,s,:] = sheet_simulator(ts[i,p,s,:],seed=s)
+            xs[i,p,s,:], raps[i,p,s,:] = sheet_simulator(ts[i,p:p+1,:],seed=s)
 
 res_dict = {'t': ts, 'x': xs, 'raps': raps}
 with open(res_file, 'wb') as handle:
