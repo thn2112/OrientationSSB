@@ -80,13 +80,13 @@ nbins = 50
 
 idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
 
-npatt = 50
+npatt = 20
 patts_fft = np.fft.fft2(np.random.default_rng(0).normal(size=(npatt,N,N)))
 patts_fft[:,0,0] = 0 # remove DC component
 freqs = np.fft.fftfreq(N,1/N)
 freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
 
-decay = 12
+decay = 8
 patts_fft *= np.exp(-0.5*freqs**2/decay**2)[None,:,:]
 
 patts = np.real(np.fft.ifft2(patts_fft).reshape(npatt,-1))
@@ -97,11 +97,11 @@ for i in range(10):
     patts -= np.mean(patts,axis=0,keepdims=True)
     patts /= np.std(patts,axis=0,keepdims=True)
     
-patt_cv = 1.2
+patt_cv = 0.65
 gam_dist = gamma(a=1/(patt_cv**2),scale=patt_cv**2)
 patts = gam_dist.ppf(norm.cdf(patts))
     
-dim_inp = 46.58640395399712
+dim_inp = npatt
 
 decay = 15
 noise_filter = np.ones((N,N,N,N)) * np.exp(-0.5*freqs**2/decay**2)[:,:,None,None]
@@ -372,24 +372,26 @@ def sheet_simulator(theta):
     
     valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3))
     
-    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
+    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None]), corr_curve
 
 start = time.process_time()
 
 thetas = torch.zeros((0,9),dtype=torch.float32,device=device)
 xs = torch.zeros((0,6),dtype=torch.float32,device=device)
+corr_curves = np.zeros((0,nbins))
 
 while thetas.shape[0] < num_samp:
-    this_samps = 1
+    this_samps = num_samp
     
     start = time.process_time()
     # sample from prior
     theta = prior.sample((this_samps,))[:,:9]
     # simulate sheet
-    x = sheet_simulator(theta)
+    x, corr_curve = sheet_simulator(theta)
 
     thetas = torch.cat([thetas,theta],dim=0)
     xs = torch.cat([xs,x],dim=0)
+    corr_curves = np.concatenate([corr_curves,corr_curve],axis=0)
 
     print(f'Simulating samples took',time.process_time() - start,'s\n')
 
@@ -398,4 +400,5 @@ while thetas.shape[0] < num_samp:
         pickle.dump({
             'theta': thetas,
             'x': xs,
+            'corr_curves': corr_curves
         }, handle)
