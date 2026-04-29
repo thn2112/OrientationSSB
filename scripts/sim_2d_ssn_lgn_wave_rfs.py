@@ -130,11 +130,16 @@ def init_net(
     n_x = n_lgn // n_grid**2 // 2
     n_stim = lgn_spikes.shape[0]
     print(n_lgn,'LGN cells')
+    
+    if mode == 'spont':
+        prune_level = 0.4
+    else:
+        prune_level = 0.57
 
     if n_iter==0: # starting a new simulation, must initialize the system
         net = Model(n_grid=n_grid,n_e=n_e,n_i=n_i,n_x=n_x,seed=seed,
                     s_x=s_x,s_s=s_s,gain_i=gain_i,
-                    prune=prune,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
+                    prune=prune,prune_level=prune_level,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
                     w_prm_dict=w_prm_dict,
                     rx_wave_start=lgn_spikes[13])#lgn_spikes[26])
     else:
@@ -144,7 +149,7 @@ def init_net(
             
         net = Model(n_grid=n_grid,n_e=n_e,n_i=n_i,n_x=n_x,
                     s_x=s_x,s_s=s_s,gain_i=gain_i,
-                    prune=prune,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
+                    prune=prune,prune_level=prune_level,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
                     w_prm_dict=w_prm_dict,init_dict=res_dict)
         
     return net

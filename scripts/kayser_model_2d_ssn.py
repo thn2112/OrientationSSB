@@ -20,6 +20,7 @@ class Model:
         hebb_wei: bool=False, # whether to use Hebbian learning for wei
         hebb_wii: bool=False, # whether to use Hebbian learning for wii
         prune: bool=False, # whether to prune weights
+        prune_lev: float=0.57, # pruning level in terms of quantiles of weight values
         rec_e_plast: bool=True, # whether recurrent weights are plastic
         rec_i_plast: bool=True, # whether recurrent weights are plastic
         rec_i_ltd: float=1.0, # factor for LTD of inhibitory weights
@@ -148,6 +149,7 @@ class Model:
         
         # whether to prune weights
         self.prune = prune
+        self.prune_lev = prune_lev
         
         # whether recurrent weights are plastic
         self.rec_e_plast = rec_e_plast
@@ -426,7 +428,7 @@ class Model:
         max_norm_wex = max_norm_wex[max_norm_wex > 1e-5 / np.mean(np.max(self.wex,axis=1))]
         max_norm_wix = self.wix/np.max(self.wix,axis=1,keepdims=True)
         max_norm_wix = max_norm_wix[max_norm_wix > 1e-5 / np.mean(np.max(self.wix,axis=1))]
-        new_thresh = np.quantile(np.concatenate((max_norm_wex,max_norm_wix)),0.57)
+        new_thresh = np.quantile(np.concatenate((max_norm_wex,max_norm_wix)),self.prune_lev)
         # new_thresh = np.quantile(max_norm_wex,0.6)
         self.max_prop_thresh += self.a_avg * (new_thresh - self.max_prop_thresh)
         # print("new threshold:",self.max_prop_thresh)
