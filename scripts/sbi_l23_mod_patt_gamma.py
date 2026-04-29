@@ -10,12 +10,8 @@ from scipy import integrate
 from scipy.signal import argrelmin,argrelmax
 from scipy.stats import norm,gamma
 
-from sbi.utils.user_input_checks import process_prior
-from sbi.utils import BoxUniform
-
 import analyze_func as af
 import map_func as mf
-from sbi_func import PostTimesBoxUniform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--job_id', '-i', help='completely arbitrary job id label',type=int, default=0)
@@ -42,29 +38,8 @@ if not os.path.exists(res_dir):
 
 res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
 
-# create prior distribution
-if bayes_iter == 0:
-    '''
-    theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
-    theta[:,1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
-    theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
-    theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
-    theta[:,4] = s_e
-    theta[:,5] = s_i
-    theta[:,6] = het_level
-    theta[:,7] = base_e
-    theta[:,8] = base_i
-    '''
-    
-    prior = BoxUniform(low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
-                       high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),)
-
-    # prior,_,_ = process_prior(prior)
-    # with open(f'./../notebooks/l23_patt_posterior_2.pkl','rb') as handle:
-    #    prior = pickle.load(handle)
-else:
-    with open(f'./../notebooks/l23_patt_gamma_posterior_{bayes_iter:d}.pkl','rb') as handle:
-        prior = pickle.load(handle)
+with open(f'./../notebooks/l23_patt_gamma_samples_{bayes_iter:d}.pkl','rb') as handle:
+    samples = pickle.load(handle)
 
 # create distances between grid points
 N = 60
@@ -380,12 +355,14 @@ thetas = torch.zeros((0,9),dtype=torch.float32,device=device)
 xs = torch.zeros((0,6),dtype=torch.float32,device=device)
 corr_curves = np.zeros((0,nbins))
 
+rng = np.random.default_rng(job_id)
+
 while thetas.shape[0] < num_samp:
     this_samps = num_samp
     
     start = time.process_time()
     # sample from prior
-    theta = prior.sample((this_samps,))[:,:9]
+    theta = rng.choice(samples, size=this_samps, replace=False)
     # simulate sheet
     x, corr_curve = sheet_simulator(theta)
 
