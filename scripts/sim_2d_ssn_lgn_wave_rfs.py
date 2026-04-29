@@ -62,7 +62,10 @@ test = int(args['test']) > 0
 n_batch = 36#26 # number of batches to collect weight changes before adjusting weights
 dt_stim = 0.1#0.25 # simulation time between stimuli
 
-max_spike_file = 50 # total number of lgn spike count files
+if n_grid == 20:
+    max_spike_file = 20 # total number of lgn spike count files
+else:
+    max_spike_file = 50 # total number of lgn spike count files
 
 # Define where to save results
 res_dir = './../results/'
@@ -132,14 +135,14 @@ def init_net(
     print(n_lgn,'LGN cells')
     
     if mode == 'spont':
-        prune_level = 0.4
+        prune_lev = 0.4
     else:
-        prune_level = 0.57
+        prune_lev = 0.57
 
     if n_iter==0: # starting a new simulation, must initialize the system
         net = Model(n_grid=n_grid,n_e=n_e,n_i=n_i,n_x=n_x,seed=seed,
                     s_x=s_x,s_s=s_s,gain_i=gain_i,
-                    prune=prune,prune_level=prune_level,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
+                    prune=prune,prune_lev=prune_lev,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
                     w_prm_dict=w_prm_dict,
                     rx_wave_start=lgn_spikes[13])#lgn_spikes[26])
     else:
@@ -149,7 +152,7 @@ def init_net(
             
         net = Model(n_grid=n_grid,n_e=n_e,n_i=n_i,n_x=n_x,
                     s_x=s_x,s_s=s_s,gain_i=gain_i,
-                    prune=prune,prune_level=prune_level,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
+                    prune=prune,prune_lev=prune_lev,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
                     w_prm_dict=w_prm_dict,init_dict=res_dict)
         
     return net
