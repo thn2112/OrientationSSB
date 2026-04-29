@@ -12,9 +12,11 @@ import analyze_func as af
 import map_func as mf
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--bayes_iter', '-b', help='from which iteration posterior',type=int, default=0)
 parser.add_argument('--batch_iter', '-bi', help='initial candidate',type=int, default=0)
 parser.add_argument('--per_batch', '-pb', help='number candidates per run',type=int, default=1)
 args = vars(parser.parse_args())
+bayes_iter = int(args['bayes_iter'])
 batch_iter = int(args['batch_iter'])
 per_batch = int(args['per_batch'])
 
@@ -32,9 +34,9 @@ if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
 init_iter = batch_iter * per_batch
-res_file = res_dir + 'candidate={:d}-{:d}.pkl'.format(init_iter, init_iter+per_batch-1)
+res_file = res_dir + 'candidate_{:d}={:d}-{:d}.pkl'.format(bayes_iter, init_iter, init_iter+per_batch-1)
 
-with open('./../notebooks/l4_candidate_prms.pkl', 'rb') as handle:
+with open('./../notebooks/l4_candidate_{:d}_prms.pkl'.format(bayes_iter), 'rb') as handle:
     candidate_prms = pickle.load(handle)
 
 # compute relationship between elongation and OS
