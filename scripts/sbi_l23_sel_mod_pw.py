@@ -52,44 +52,47 @@ L4_rates_itp = CubicSpline(np.arange(0,8+1) * 1/(3*8),
                            axis=-1,bc_type='periodic')
 
 # create prior distribution
-if bayes_iter == 0:
-    '''
-    theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
-    theta[:,1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
-    theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
-    theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
-    theta[:,4] = s_e
-    theta[:,5] = s_i
-    theta[:,6] = het_level
-    theta[:,7] = base_e
-    theta[:,8] = base_i
-    theta[:,9] = log10[J_mult]
-    '''
-    # load posterior of phase ring connectivity parameters
-    # with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
-    #     prior = pickle.load(handle)
-    # full_prior = PostTimesBoxUniform(prior,
-    #     post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
-    #     post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
-    #     low =torch.tensor([-0.5],device=device),
-    #     high=torch.tensor([ 0.5],device=device),)
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_4.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
-elif bayes_iter == 1:
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_6.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
-elif bayes_iter == 2:
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_8.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
-elif bayes_iter == 3:
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_9.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
-elif bayes_iter == 4:
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_10.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
-else:
-    with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
-        full_prior = pickle.load(handle)
+# if bayes_iter == 0:
+#     '''
+#     theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
+#     theta[:,1] = (|Jee|-|Jii|)/(|Jei| + |Jie|)
+#     theta[:,2] = (log10[|Jei|] + log10[|Jie|]) / 2
+#     theta[:,3] = (log10[|Jei|] - log10[|Jie|]) / 2
+#     theta[:,4] = s_e
+#     theta[:,5] = s_i
+#     theta[:,6] = het_level
+#     theta[:,7] = base_e
+#     theta[:,8] = base_i
+#     theta[:,9] = log10[J_mult]
+#     '''
+#     # load posterior of phase ring connectivity parameters
+#     # with open(f'./../notebooks/l23_patt_gamma_posterior_2.pkl', 'rb') as handle:
+#     #     prior = pickle.load(handle)
+#     # full_prior = PostTimesBoxUniform(prior,
+#     #     post_low =torch.tensor([ 0.0,-2.0,-2.0,-2.0, 0.02, 0.02, 0.01, 0.01, 0.01],device=device),
+#     #     post_high=torch.tensor([ 1.0, 2.0, 1.0, 1.0, 0.1 , 0.1 , 0.5 , 0.5 , 0.5 ],device=device),
+#     #     low =torch.tensor([-0.5],device=device),
+#     #     high=torch.tensor([ 0.5],device=device),)
+#     with open(f'./../notebooks/l23_sel_mod_pw_posterior_4.pkl','rb') as handle:
+#         full_prior = pickle.load(handle)
+# elif bayes_iter == 1:
+#     with open(f'./../notebooks/l23_sel_mod_pw_posterior_6.pkl','rb') as handle:
+#         full_prior = pickle.load(handle)
+# elif bayes_iter == 2:
+#     with open(f'./../notebooks/l23_sel_mod_pw_posterior_8.pkl','rb') as handle:
+#         full_prior = pickle.load(handle)
+# elif bayes_iter == 3:
+#     with open(f'./../notebooks/l23_sel_mod_pw_posterior_9.pkl','rb') as handle:
+#         full_prior = pickle.load(handle)
+# elif bayes_iter == 4:
+#     with open(f'./../notebooks/l23_sel_mod_pw_posterior_10.pkl','rb') as handle:
+#         full_prior = pickle.load(handle)
+# else:
+#     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
+#         full_prior = pickle.load(handle)
+
+with open(f'./../notebooks/l23_patt_gamma_samples_{bayes_iter:d}.pkl','rb') as handle:
+    samples = pickle.load(handle)
 
 # create distances between grid points
 N = 60
@@ -420,23 +423,29 @@ def sheet_simulator(theta):
     out[:,16] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
     out[:,17] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
     out[:,18] = torch.tensor(var_r,dtype=theta.dtype).to(theta.device)
-    valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4))
+    valid_idx = torch.all(torch.all(torch.all(torch.all(torch.tensor(resps) < 5e4,axis=1),axis=1),axis=1),axis=1)
     
-    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
+    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None]), raps, corr_curve
+
+rng = np.random.default_rng(job_id)
 
 thetas = torch.zeros((0,10),dtype=torch.float32,device=device)
 xs = torch.zeros((0,19),dtype=torch.float32,device=device)
+corr_curves = np.zeros((0,nbins))
+raps = np.zeros((0,nbins))
 while thetas.shape[0] < num_samp:
     this_samps = min(1, num_samp - thetas.shape[0])
     
     start = time.process_time()
     # sample from prior
-    theta = full_prior.sample((this_samps,))
+    theta = rng.choice(samples, size=this_samps, replace=False)
     # simulate sheet
-    x = sheet_simulator(theta)
+    x,rap,corr_curve = sheet_simulator(theta)
 
     thetas = torch.cat([thetas,theta],dim=0)
     xs = torch.cat([xs,x],dim=0)
+    raps = np.vstack([raps,rap[:,:nbins]])
+    corr_curves = np.vstack([corr_curves,corr_curve])
 
     print(f'Simulating samples took',time.process_time() - start,'s\n')
 
@@ -445,4 +454,6 @@ while thetas.shape[0] < num_samp:
         pickle.dump({
             'theta': thetas,
             'x': xs,
+            'raps': raps,
+            'corr_curves': corr_curves
         }, handle)
