@@ -109,14 +109,14 @@ gam_map = gam_os_itp(np.abs(L4_inp_opm))
 sig2 = 0.00095
 
 rf_sct_scale = 0.8
-pol_scale = 10#2.0
+pol_scale = np.array([10,5,5])
 L_mm = N/11
 mag_fact = 0.02
 # L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
 L_deg = 5.9 / grate_freq
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='highpass',seed=seed)
+sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass',seed=seed)
 
 # Compute distance matrix for connectivity kernel
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
