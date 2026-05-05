@@ -10,10 +10,7 @@ from scipy import integrate
 from scipy.signal import argrelmin,argrelmax
 from scipy.stats import norm,gamma
 
-from sbi.utils.user_input_checks import process_prior
-
 import analyze_func as af
-from sbi_func import PostTimesBoxUniform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--job_id', '-i', help='completely arbitrary job id label',type=int, default=0)
@@ -91,7 +88,7 @@ L4_rates_itp = CubicSpline(np.arange(0,8+1) * 1/(3*8),
 #     with open(f'./../notebooks/l23_sel_mod_pw_posterior_{bayes_iter:d}.pkl','rb') as handle:
 #         full_prior = pickle.load(handle)
 
-with open(f'./../notebooks/l23_patt_gamma_samples_{bayes_iter:d}.pkl','rb') as handle:
+with open(f'./../notebooks/l23_sel_mod_pw_samples_{bayes_iter:d}.pkl','rb') as handle:
     samples = pickle.load(handle)
 
 # create distances between grid points
@@ -432,13 +429,13 @@ rng = np.random.default_rng(job_id)
 thetas = torch.zeros((0,10),dtype=torch.float32,device=device)
 xs = torch.zeros((0,19),dtype=torch.float32,device=device)
 corr_curves = np.zeros((0,nbins))
-raps = np.zeros((0,nbins))
+raps = np.zeros((0,43))
 while thetas.shape[0] < num_samp:
-    this_samps = min(1, num_samp - thetas.shape[0])
+    this_samps = num_samp# min(1, num_samp - thetas.shape[0])
     
     start = time.process_time()
     # sample from prior
-    theta = rng.choice(samples, size=this_samps, replace=False)
+    theta = torch.tensor(rng.choice(samples, size=this_samps, replace=False))
     # simulate sheet
     x,rap,corr_curve = sheet_simulator(theta)
 

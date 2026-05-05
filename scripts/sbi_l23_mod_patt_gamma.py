@@ -345,7 +345,7 @@ def sheet_simulator(theta):
     out[:,4] = torch.tensor(dim,dtype=theta.dtype).to(theta.device)
     out[:,5] = torch.tensor(min_r,dtype=theta.dtype).to(theta.device)
     
-    valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3))
+    valid_idx = torch.all(torch.all(torch.all(torch.tensor(resps) < 5e4,dim=1),dim=1),dim=1)
     
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None]), corr_curve
 
@@ -362,7 +362,7 @@ while thetas.shape[0] < num_samp:
     
     start = time.process_time()
     # sample from prior
-    theta = rng.choice(samples, size=this_samps, replace=False)
+    theta = torch.tensor(rng.choice(samples, size=this_samps, replace=False))
     # simulate sheet
     x, corr_curve = sheet_simulator(theta)
 
