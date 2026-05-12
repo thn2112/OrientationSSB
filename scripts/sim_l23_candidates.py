@@ -385,19 +385,27 @@ def sheet_simulator(theta,file,seed=0):
     
     return out[0], raps[0], corr_curve[0]
 
-n_seed = 3
-xs = torch.zeros((per_batch,n_seed,2,19),dtype=torch.float32,device=device)
-raps = np.zeros((per_batch,n_seed,2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
-corr_curves = np.zeros((per_batch,n_seed,2,nbins))
+n_pert = 3
+n_seed = 1
+ts = torch.zeros((per_batch,n_pert,10),dtype=torch.float32,device=device)
+xs = torch.zeros((per_batch,n_pert,n_seed,2,19),dtype=torch.float32,device=device)
+raps = np.zeros((per_batch,n_pert,n_seed,2,int(np.round(np.ceil(N//2*np.sqrt(2))))))
+corr_curves = np.zeros((per_batch,n_pert,n_seed,2,nbins))
 
 for i in range(per_batch):
     this_theta = candidate_prms[init_iter+i:init_iter+i+1].to(device)
-    for s in range(n_seed):
-        xs[i,s,0,:], raps[i,s,0,:], corr_curves[i,s,0,:] = sheet_simulator(this_theta,
-            f'./../results/L4_sel/seed={s}.pkl',seed=s)
-        xs[i,s,1,:], raps[i,s,1,:], corr_curves[i,s,1,:] = sheet_simulator(this_theta,
-            f'./../results/L4_sel/band_seed={s}.pkl',seed=s)
+    ts[i,0,:] = this_theta[0]
+    ts[i,1:,:] = (this_theta * torch.concat((torch.ones((n_pert-1,2),device=device),
+                                             1+torch.randn((n_pert-1,2),device=device)*0.005,
+                                             1+torch.randn((n_pert-1,5),device=device)*0.05,
+                                             torch.ones((n_pert-1,1),device=device)),dim=1))
+    for p in range(n_pert):
+        for s in range(n_seed):
+            xs[i,p,s,0,:], raps[i,p,s,0,:], corr_curves[i,p,s,0,:] = sheet_simulator(ts[i,p:p+1,:],
+                f'./../results/L4_sel/seed={s}.pkl',seed=s)
+            xs[i,p,s,1,:], raps[i,p,s,1,:], corr_curves[i,p,s,1,:] = sheet_simulator(ts[i,p:p+1,:],
+                f'./../results/L4_sel/band_seed={s}.pkl',seed=s)
 
-res_dict = {'x': xs, 'raps': raps, 'corr_curves': corr_curves}
+res_dict = {'t': ts, 'x': xs, 'raps': raps, 'corr_curves': corr_curves}
 with open(res_file, 'wb') as handle:
     pickle.dump(res_dict, handle)
