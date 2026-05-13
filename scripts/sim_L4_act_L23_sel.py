@@ -25,6 +25,7 @@ parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
 parser.add_argument('--add_phase', '-ap', help='add phase selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
+parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
 parser.add_argument('--map', '-m', help='whether to switch to a different L4 map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
@@ -37,6 +38,7 @@ seed = int(args['seed'])
 add_phase = args['add_phase']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
+add_ffl4 = args['add_ffl4']
 static = args['static']
 saverates = args['saverates']
 
@@ -64,6 +66,8 @@ if add_orisel:
     res_dir = res_dir + 'orisel_'
 if add_sandp:
     res_dir = res_dir + 'sandp_'
+if add_ffl4:
+    res_dir = res_dir + 'ffl4_'
 res_file = res_dir + 'seed={:d}.pkl'.format(seed)
 
 res_dict = {}
@@ -75,9 +79,13 @@ if args['map'] is None:
 else:
     with open('./../results/L4_sel/{:s}_seed={:d}.pkl'.format(args['map'],seed), 'rb') as handle:
         L4_res_dict = pickle.load(handle)
-    
-L4_rates = L4_res_dict['L4_rates'][0]
-L4_rate_opm = L4_res_dict['L4_rate_opm'][0]
+
+if add_ffl4:
+    L4_rates = L4_res_dict['L4_rf_rates']
+    L4_rate_opm = L4_res_dict['L4_inp_opm']
+else:
+    L4_rates = L4_res_dict['L4_rates'][0]
+    L4_rate_opm = L4_res_dict['L4_rate_opm'][0]
 
 L4_rates /= np.nanmean(L4_rates,axis=(-2,-1),keepdims=True)
 if add_phase:
