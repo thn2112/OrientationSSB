@@ -25,8 +25,8 @@ def runjobs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=int, default=0)
     parser.add_argument("--cluster_", help=" String", default='burg')
-    parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
-    parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
+    parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=8)
+    parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=8)
     # parser.add_argument('--n_rpt', '-nr', help='number of repetitions per orientation',type=int, default=5)
     parser.add_argument('--gb', '-g', help='number of gbs per cpu',type=int, default=2)
     
@@ -91,19 +91,19 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['','band','band_4','band_8','band_12','band_16']
-    num_seeds = 50
+    maps = ['','band']#,'band_4','band_8','band_12','band_16']
+    num_seeds = 20
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
             if map_type == '':
-                statics = [0,1]
-                phase_sandps = [(0,0),(1,0),(0,1)]
+                statics = [0]#,1]
+                phase_orisel_sandps = [(0,0,0),(1,0,0),(0,1,0),(0,0,1)]
             else:
                 statics = [0]
-                phase_sandps = [(0,0)]
+                phase_orisel_sandps = [(0,0,0)]
             for static in statics:
-                for (phase,sandp) in phase_sandps:
+                for (phase,orisel,sandp) in phase_orisel_sandps:
                     #--------------------------------------------------------------------------
                     # Make SBTACH
                     inpath = currwd + "/analyze_L23_sel.py"
@@ -115,11 +115,13 @@ def runjobs():
                         c1 = c1 + " -m {:s}".format(map_type)
                     if phase == 1:
                         c1 = c1 + " -ap 1"
+                    if orisel == 1:
+                        c1 = c1 + " -aos 1"
                     if sandp == 1:
                         c1 = c1 + " -asp 1"
 
-                    jobname="{:s}_map={:s}_static={:d}_phase={:d}_sandp={:d}".format(
-                        'analyze_L23_sel',map_type,static,phase,sandp)
+                    jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}".format(
+                        'analyze_L23_sel',map_type,static,phase,orisel,sandp)
                     
                     if not args2.test:
                         jobnameDir=os.path.join(temp_dir, jobname)
