@@ -97,57 +97,59 @@ def runjobs():
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
             if map_type == '':
-                statics = [0]#,1]
-                phase_orisel_sandps = [(0,0,0),(1,0,0),(0,1,0),(0,0,1)]
+                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),(1,0,0,0,0),
+                                                   (0,1,0,0,0),(1,1,0,0,0),
+                                                   (0,0,1,0,0),(0,0,0,1,0),
+                                                   (0,0,0,0,1),(1,0,0,0,1)]
             else:
-                statics = [0]
-                phase_orisel_sandps = [(0,0,0)]
-            for static in statics:
-                for (phase,orisel,sandp) in phase_orisel_sandps:
-                    #--------------------------------------------------------------------------
-                    # Make SBTACH
-                    inpath = currwd + "/analyze_L23_sel.py"
-                    c1 = "{:s} -s {:d} -no {:d} -np {:d}".format(
-                            inpath,num_seeds,n_ori,n_phs)
-                    if static == 1:
-                        c1 = c1 + " -st 1"
-                    if map_type != '':
-                        c1 = c1 + " -m {:s}".format(map_type)
-                    if phase == 1:
-                        c1 = c1 + " -ap 1"
-                    if orisel == 1:
-                        c1 = c1 + " -aos 1"
-                    if sandp == 1:
-                        c1 = c1 + " -asp 1"
+                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
+            for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
+                #--------------------------------------------------------------------------
+                # Make SBTACH
+                inpath = currwd + "/analyze_L23_sel.py"
+                c1 = "{:s} -s {:d} -no {:d} -np {:d}".format(
+                        inpath,num_seeds,n_ori,n_phs)
+                if static == 1:
+                    c1 = c1 + " -st 1"
+                if map_type != '':
+                    c1 = c1 + " -m {:s}".format(map_type)
+                if phase == 1:
+                    c1 = c1 + " -ap 1"
+                if orisel == 1:
+                    c1 = c1 + " -aos 1"
+                if sandp == 1:
+                    c1 = c1 + " -asp 1"
+                if ffl4 == 1:
+                    c1 = c1 + " -aff 1"
 
-                    jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}".format(
-                        'analyze_L23_sel',map_type,static,phase,orisel,sandp)
-                    
-                    if not args2.test:
-                        jobnameDir=os.path.join(temp_dir, jobname)
-                        text_file=open(jobnameDir, "w");
-                        os. system("chmod u+x "+ jobnameDir)
-                        text_file.write("#!/bin/sh \n")
-                        if cluster=='haba' or cluster=='moto' or cluster=='burg':
-                            text_file.write("#SBATCH --account=theory \n")
-                        text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                        text_file.write("#SBATCH -t 0-2:59  \n")
-                        text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
-                        # text_file.write("#SBATCH --gres=gpu\n")
-                        text_file.write("#SBATCH -c 1 \n")
-                        text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
-                        text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
-                        text_file.write("python  -W ignore " + c1+" \n")
-                        text_file.write("echo $PATH  \n")
-                        text_file.write("exit 0  \n")
-                        text_file.close()
+                jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}".format(
+                    'analyze_L23_sel',map_type,static,phase,orisel,sandp,ffl4)
+                
+                if not args2.test:
+                    jobnameDir=os.path.join(temp_dir, jobname)
+                    text_file=open(jobnameDir, "w");
+                    os. system("chmod u+x "+ jobnameDir)
+                    text_file.write("#!/bin/sh \n")
+                    if cluster=='haba' or cluster=='moto' or cluster=='burg':
+                        text_file.write("#SBATCH --account=theory \n")
+                    text_file.write("#SBATCH --job-name="+jobname+ "\n")
+                    text_file.write("#SBATCH -t 0-2:59  \n")
+                    text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
+                    # text_file.write("#SBATCH --gres=gpu\n")
+                    text_file.write("#SBATCH -c 1 \n")
+                    text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
+                    text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
+                    text_file.write("python  -W ignore " + c1+" \n")
+                    text_file.write("echo $PATH  \n")
+                    text_file.write("exit 0  \n")
+                    text_file.close()
 
-                        if cluster=='axon':
-                            os.system("sbatch -p burst " +jobnameDir);
-                        else:
-                            os.system("sbatch " +jobnameDir);
+                    if cluster=='axon':
+                        os.system("sbatch -p burst " +jobnameDir);
                     else:
-                        print (c1)
+                        os.system("sbatch " +jobnameDir);
+                else:
+                    print (c1)
 
 
 if __name__ == "__main__":
