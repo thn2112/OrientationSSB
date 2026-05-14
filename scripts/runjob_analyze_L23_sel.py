@@ -100,7 +100,8 @@ def runjobs():
                 static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),(1,0,0,0,0),
                                                    (0,1,0,0,0),(1,1,0,0,0),
                                                    (0,0,1,0,0),(0,0,0,1,0),
-                                                   (0,0,0,0,1),(1,0,0,0,1)]
+                                                   (0,0,0,0,1),(1,0,0,0,1),
+                                                   (0,-1,0,0,1),(1,-1,0,0,1)]
             else:
                 static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
             for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
@@ -115,6 +116,8 @@ def runjobs():
                     c1 = c1 + " -m {:s}".format(map_type)
                 if phase == 1:
                     c1 = c1 + " -ap 1"
+                elif phase == -1:
+                    c1 = c1 + " -rp 1"
                 if orisel == 1:
                     c1 = c1 + " -aos 1"
                 if sandp == 1:

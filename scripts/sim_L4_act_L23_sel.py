@@ -23,6 +23,7 @@ parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, de
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
 parser.add_argument('--add_phase', '-ap', help='add phase selectivity to L4 inputs or not',type=bool, default=False)
+parser.add_argument('--remove_phase', '-rp', help='remove phase selectivity from L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
@@ -36,6 +37,7 @@ n_phs = int(args['n_phs'])
 n_int= int(args['n_int'])
 seed = int(args['seed'])
 add_phase = args['add_phase']
+remove_phase = args['remove_phase']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
@@ -62,6 +64,8 @@ if args['map'] is not None:
     res_dir = res_dir + args['map'] + '_'
 if add_phase:
     res_dir = res_dir + 'phase_'
+if remove_phase:
+    res_dir = res_dir + 'rphase_'
 if add_orisel:
     res_dir = res_dir + 'orisel_'
 if add_sandp:
@@ -93,6 +97,8 @@ if add_phase:
     L4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_phs,endpoint=False)[None,None,:]-phs[:,:,None]))
     L4_phase_rates *= np.nanmean(L4_rates,axis=(-1),keepdims=True) / np.nanmean(L4_phase_rates,axis=(-1),keepdims=True)
     L4_rates = L4_phase_rates
+elif remove_phase:
+    L4_rates = np.nanmean(L4_rates,axis=(-1),keepdims=True) * np.ones_like(L4_rates)
 if add_orisel:
     _,_,doub_po = af.calc_dc_ac_comp(L4_rates.mean(-1))
     L4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None]))
