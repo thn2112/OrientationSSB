@@ -82,7 +82,7 @@ else:
 
 if add_ffl4:
     L4_rates = L4_res_dict['L4_rf_rates'][0]
-    L4_rate_opm = L4_res_dict['L4_inp_opm']
+    L4_rate_opm = L4_res_dict['L4_inp_opm'].flatten()
 else:
     L4_rates = L4_res_dict['L4_rates'][0]
     L4_rate_opm = L4_res_dict['L4_rate_opm'][0]
