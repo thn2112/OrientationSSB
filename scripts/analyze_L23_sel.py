@@ -25,6 +25,7 @@ parser.add_argument('--static', '-st', help='static or dynamic input',type=bool,
 parser.add_argument('--add_phase', '-ap', help='add phase to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
+parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
 parser.add_argument('--num_seeds', '-s', help='number of seeds to average over',type=int, default=0)
 parser.add_argument('--num_samps', '-sa', help='number of samples from each seed to save',type=int, default=100)
 args = vars(parser.parse_args())
@@ -36,6 +37,7 @@ static = args['static']
 add_phase = args['add_phase']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
+add_ffl4 = args['add_ffl4']
 num_seeds = int(args['num_seeds'])
 num_samps = int(args['num_samps'])
 
@@ -67,6 +69,9 @@ if add_orisel:
     
 if add_sandp:
     res_dir = res_dir + 'sandp_'
+    
+if add_ffl4:
+    res_dir = res_dir + 'ffl4_'
 
 res_dict = {}
 rng = np.random.default_rng(0)
@@ -113,7 +118,10 @@ for seed_idx in range(num_seeds):
     except:
         continue
     
-    l4_rates = l4_dict['L4_rates']
+    if add_ffl4:
+        l4_rates = l4_dict['L4_rf_rates']
+    else:
+        l4_rates = l4_dict['L4_rates']
     l4_rates /= np.nanmean(l4_rates,axis=(-2,-1),keepdims=True)
     if add_phase:
         _,_,phs = af.calc_dc_ac_comp(l4_rates)
