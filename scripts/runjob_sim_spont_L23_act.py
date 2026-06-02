@@ -98,7 +98,7 @@ def runjobs():
                 #--------------------------------------------------------------------------
                 # Make SBTACH
                 inpath = currwd + "/sim_spont_L23_act.py"
-                c1 = "{:s} -s {:d} -npt {:d} -pcf {:.2f} -r 1".format(
+                c1 = "{:s} -s {:d} -npt {:d} -pcv {:.2f} -r 1".format(
                         inpath,seed,n_patt,pcv)
                 res_dir = './../results/L23_sel/'
                 if os.path.isfile(res_dir+'spont_cv={:.2f}_seed={:d}.pkl'.format(pcv,seed)):

@@ -78,7 +78,6 @@ for seed_idx in tqdm(range(num_seeds)):
         patts -= np.mean(patts,axis=0,keepdims=True)
         patts /= np.std(patts,axis=0,keepdims=True)
         
-    patt_cv = 0.65
     gam_dist = gamma(a=1/(patt_cv**2),scale=patt_cv**2)
     inps = gam_dist.ppf(norm.cdf(patts)).T.reshape(N**2,-1)
     
