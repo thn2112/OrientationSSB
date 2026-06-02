@@ -66,13 +66,16 @@ freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
 
 if args['map'] is None or args['map'] == 'low':
     decay = 5
+    sb_mult = 1
     opm_fft *= np.exp(-freqs/decay)
 elif 'band' in args['map']:
     if args['map'] == 'band':
         peak = 6
+        sb_mult = 1
     else:
         _,peak = args['map'].split('_')
         peak = float(peak)
+        sb_mult = (6 / peak)**1.0
     opm_fft *= np.exp(-((freqs-peak)/2.5)**2)#np.heaviside(0.5 - np.abs(freqs-peak),0.5)
 
 L4_inp_opm = np.fft.ifft2(opm_fft)
@@ -252,7 +255,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     dt = 1 / (n_int * n_phs * 3)
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
 
-    s_b = np.sqrt(sig2)*params[6]
+    s_b = np.sqrt(sig2)*params[6]*sb_mult
 
     kern_n = np.eye(N**2)
 
