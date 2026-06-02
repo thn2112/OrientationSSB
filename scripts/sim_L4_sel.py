@@ -17,8 +17,8 @@ import analyze_func as af
 import map_func as mf
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
-parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
+parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=8)
+parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=8)
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--map', '-m', help='type of map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
@@ -213,7 +213,7 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_n,ker
 
     ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
     yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
-    return xea,xen,xeg,xia,xin,xig,np.concatenate((ye,yi))
+    return np.concatenate((xea+xen+xeg,xia+xin+xig)),np.concatenate((ye,yi))
 
 def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
     gam_map_flat = gam_map.flatten()
@@ -223,15 +223,17 @@ def get_sheet_rf_resps(N,gam_map,ori_map,rf_sct_map,pol_map):
     thresh = c
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
 
+    inps = np.zeros((2,N**2,n_ori,n_phs))
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
         phs_map_flat = mf.gen_abs_phs_map(N,rf_sct_map,pol_map,ori,grate_freq,L_deg).flatten()
         def ff_inp(t):
             return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
         for phs_idx in range(n_phs):
+            inps[:,:,ori_idx,phs_idx] = ff_inp(phs_idx/n_phs / 3).reshape(1,N**2)
             resps[:,:,ori_idx,phs_idx] = (np.fmax(0,ff_inp(phs_idx/n_phs / 3)-thresh)**2).reshape(1,N**2)
 
-    return resps
+    return inps,resps
 
 def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     '''
@@ -267,6 +269,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     ori_map_flat = ori_map.flatten()
 
     tsamp = nwrm-1 + np.arange(0,n_phs) * n_int
+    inps = np.zeros((2,N**2,n_ori,n_phs))
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
         phs_map_flat = mf.gen_abs_phs_map(N,rf_sct_map,pol_map,ori,grate_freq,L_deg).flatten()
@@ -274,21 +277,23 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
             for phs_idx,phs in enumerate(np.linspace(0,2*np.pi,n_phs,endpoint=False)):
                 def ff_inp(t):
                     return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+phs)
-                _,_,_,_,_,_,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
+                inp,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                         np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                         ff_inp,Jee,Jei,Jie,Jii,kern_n,kern_b,N,2,2,
                                         thresh,thresh,0,dt,nwrm,tsamp[0:1],
                                         b_frac_e=params[4],b_frac_i=params[5])
+                inps[:,:,ori_idx,phs_idx] = inp.reshape(2,N**2)
                 resps[:,:,ori_idx,phs_idx] = resp.reshape(2,N**2)
 
         else:
             def ff_inp(t):
                 return c*elong_inp(gam_map_flat,ori-ori_map_flat,phs_map_flat+2*np.pi*3*t)
-            _,_,_,_,_,_,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
+            inp,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee,Jei,Jie,Jii,kern_n,kern_b,N,2,2,
                                     thresh,thresh,0,dt,nwrm+n_int*n_phs,tsamp,
                                     b_frac_e=params[4],b_frac_i=params[5])
+            inps[:,:,ori_idx,:] = inp.reshape(2,N**2,n_phs)
             resps[:,:,ori_idx,:] = resp.reshape(2,N**2,n_phs)
         # xea,xen,xeg,xia,xin,xig,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
         #                          np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
@@ -301,34 +306,54 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
         #                          thresh,thresh,phs_idx*n_int*dt,dt,n_int,lat_frac=params[4])
         #     resps[:,:,ori_idx,phs_idx+1] = resp.reshape(2,N**2)
 
-    return resps
+    return inps,resps
 
 # Integrate to get firing rates
 start = time.process_time()
 
-L4_rf_rates = get_sheet_rf_resps(N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
-L4_rates = get_sheet_resps(params,N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
+L4_ff_inps,L4_rf_rates = get_sheet_rf_resps(N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
+L4_net_inps,L4_rates = get_sheet_resps(params,N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
 
 print('Simulating rate dynamics took',time.process_time() - start,'s\n')
 
 if saverates:
     res_dict['L4_rf_rates'] = L4_rf_rates
     res_dict['L4_rates'] = L4_rates
+    # res_dict['L4_ff_inps'] = L4_ff_inps
+    # res_dict['L4_net_inps'] = L4_net_inps
 
 # Calculate CV of inputs and responses
 inp_r0 = np.mean(L4_rf_rates,(-2,-1))
 inp_opm,inp_mr = af.calc_OPM_MR(L4_rf_rates)
+inp_ppms = [af.calc_OPM(L4_rf_rates[:,:,i,:].reshape(2,N,N,n_phs)) for i in range(n_ori)]
 # inp_os = np.abs(inp_opm)
 # inp_po = np.angle(inp_opm)*180/(2*np.pi)
 inp_r1 = np.abs(inp_opm)*inp_r0
 
 L4_rate_r0 = np.mean(L4_rates,(-2,-1))
 L4_rate_opm,L4_rate_mr = af.calc_OPM_MR(L4_rates)
+L4_rate_ppms = [af.calc_OPM(L4_rates[:,:,i,:].reshape(2,N,N,n_phs)) for i in range(n_ori)]
 # L4_rate_os = np.abs(L4_rate_opm)
 # L4_rate_po = np.angle(L4_rate_opm)*180/(2*np.pi)
 L4_rate_r1 = np.abs(L4_rate_opm)*L4_rate_r0
 
+def max_ori_one_hot(A,N,nori,nphs):
+    max_ori = A.reshape(N,N,-1).argmax(-1)//nphs
+    one_hot = np.zeros((N,N,nori))
+    for i in range(N):
+        for j in range(N):
+            one_hot[i,j,max_ori[i,j]] = 1
+    return one_hot
+
+ff_opm = af.calc_OPM(max_ori_one_hot(L4_ff_inps[0],N,n_ori,n_phs))
+ff_ppms = np.array([af.calc_OPM(L4_ff_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
+rec_opm = af.calc_OPM(max_ori_one_hot(L4_net_inps[0]-L4_ff_inps[0],N,n_ori,n_phs))
+rec_ppms = np.array([af.calc_OPM((L4_net_inps-L4_ff_inps)[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
+net_opm = af.calc_OPM(max_ori_one_hot(L4_net_inps[0],N,n_ori,n_phs))
+net_ppms = np.array([af.calc_OPM(L4_net_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
+
 res_dict['L4_inp_opm'] = L4_inp_opm
+res_dict['L4_inp_ppms'] = inp_ppms
 res_dict['inp_r0'] = inp_r0
 res_dict['inp_r1'] = inp_r1
 res_dict['inp_opm'] = inp_opm
@@ -338,6 +363,14 @@ res_dict['L4_rate_r0'] = L4_rate_r0
 res_dict['L4_rate_r1'] = L4_rate_r1
 res_dict['L4_rate_opm'] = L4_rate_opm
 res_dict['L4_rate_mr'] = L4_rate_mr
+res_dict['L4_rate_ppms'] = L4_rate_ppms
+
+res_dict['ff_opm'] = ff_opm
+res_dict['ff_ppms'] = ff_ppms
+res_dict['rec_opm'] = rec_opm
+res_dict['rec_ppms'] = rec_ppms
+res_dict['net_opm'] = net_opm
+res_dict['net_ppms'] = net_ppms
 
 with open(res_file, 'wb') as handle:
     pickle.dump(res_dict,handle)
