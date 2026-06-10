@@ -53,7 +53,7 @@ if bayes_iter <= 2:
     with open(f'./../notebooks/l4_dev_prior_samples_{bayes_iter}.pkl','rb') as handle:
         samples = pickle.load(handle)
 else:
-    with open(f'./../notebooks/l4_dev_sf={spat_freq:.1f}_{bayes_iter:d}.pkl','rb') as handle:
+    with open(f'./../notebooks/l4_dev_sf={spat_freq:.1f}_samples_{bayes_iter:d}.pkl','rb') as handle:
         samples = pickle.load(handle)
 
 # read L4 ff inps from dev model
