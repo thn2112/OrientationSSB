@@ -326,8 +326,8 @@ def sheet_simulator(theta):
     out[:,11] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
     out[:,12] = torch.tensor(var_r,dtype=theta.dtype).to(theta.device)
     
-    valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4)) & (Jii < 0)
-    
+    valid_idx = torch.all(torch.all(torch.all(torch.all(torch.tensor(resps) < 5e4,axis=1),axis=1),axis=1),axis=1) & (Jii < 0)
+
     return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
 
 rng = np.random.default_rng(job_id)
