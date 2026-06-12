@@ -328,12 +328,14 @@ def sheet_simulator(theta):
     
     valid_idx = torch.all(torch.all(torch.all(torch.all(torch.tensor(resps) < 5e4,axis=1),axis=1),axis=1),axis=1) & (Jii < 0)
 
-    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
+    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None]), raps, resp_opm
 
 rng = np.random.default_rng(job_id)
 
 thetas = torch.zeros((0,8))
 xs = torch.zeros((0,13))
+rapss = np.zeros((0,int(np.round(np.ceil(N//2*np.sqrt(2))))))
+opms = np.zeros((0,N**2))
 
 while thetas.shape[0] < num_samp:
     this_samps = num_samp
@@ -342,10 +344,12 @@ while thetas.shape[0] < num_samp:
     # sample from prior
     theta = torch.tensor(rng.choice(samples, size=this_samps, replace=False))
     # simulate sheet
-    x = sheet_simulator(theta)
+    x,raps,opm = sheet_simulator(theta)
 
     thetas = torch.cat([thetas,theta],dim=0)
     xs = torch.cat([xs,x],dim=0)
+    rapss = np.concatenate((rapss,raps),axis=0)
+    opms = np.concatenate((opms,opm),axis=0)
 
     print(f'Simulating samples took',time.process_time() - start,'s\n')
 
@@ -354,4 +358,6 @@ while thetas.shape[0] < num_samp:
         pickle.dump({
             'theta': thetas,
             'x': xs,
+            'raps': raps,
+            'opms': opms,
         }, handle)
