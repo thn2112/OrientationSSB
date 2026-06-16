@@ -120,11 +120,13 @@ w_prm_dict.update({
     'wii_sum': 10**log10JII * (1+w_prm_dict['broad_frac_i']),
 })
 
+coprimes = [1, 3, 7, 9, 11, 13, 17, 19, 21, 23, 27, 29, 31, 33, 37, 39, 41, 43, 47, 49]
+skip = coprimes[seed%20]
 def init_net(
     n_iter: int,
     ):
     # compute number of LGN cells
-    lgn_file = lgn_dir + 'seed={:d}.pkl'.format((n_iter + seed) % max_spike_file)
+    lgn_file = lgn_dir + 'seed={:d}.pkl'.format((n_iter*skip + seed) % max_spike_file)
     print('Opening spike counts from',lgn_file)
     with open(lgn_file, 'rb') as handle:
         lgn_dict = pickle.load(handle)
