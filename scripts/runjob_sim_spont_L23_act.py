@@ -89,7 +89,7 @@ def runjobs():
 
     time.sleep(0.2)
     
-    seeds = range(20)
+    seeds = range(5)
     pcvs = [0.5,0.75,1.0]
     sfs = [8]
     iss = [0.5,0.75,1.0]
@@ -108,7 +108,7 @@ def runjobs():
                         if os.path.isfile(res_dir+'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(pcv,sf,inp_str,seed)):
                             continue
 
-                        jobname="{:s}_cv={:.2f}_sf={:d}_is={:1.f}_seed={:d}".format(
+                        jobname="{:s}_cv={:.2f}_sf={:d}_is={:.1f}_seed={:d}".format(
                             'sim_spont_L23_act',pcv,sf,inp_str,seed)
 
                         if not args2.test:

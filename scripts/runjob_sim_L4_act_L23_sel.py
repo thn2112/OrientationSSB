@@ -91,17 +91,19 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['','band']#,'band_4','band_8','band_12','band_16']
+    maps = [#'','band',
+            'band_4','band_8','band_12']
     seeds = range(20)
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
             if map_type == '':
-                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),(1,0,0,0,0),
-                                                   (0,1,0,0,0),(1,1,0,0,0),
+                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),#(1,0,0,0,0),
+                                                   (0,1,0,0,0),#(1,1,0,0,0),
                                                    (0,0,1,0,0),(0,0,0,1,0),
-                                                   (0,0,0,0,1),(1,0,0,0,1),
-                                                   (0,-1,0,0,1),(1,-1,0,0,1)]
+                                                   (0,0,0,0,1),#(1,0,0,0,1),
+                                                   (0,-1,0,0,1),#(1,-1,0,0,1),
+                                                   (0,0,1,0,1),(0,0,0,1,1)]
             else:
                 static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
             for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
@@ -147,7 +149,7 @@ def runjobs():
                         if cluster=='haba' or cluster=='moto' or cluster=='burg':
                             text_file.write("#SBATCH --account=theory \n")
                         text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                        text_file.write("#SBATCH -t 0-11:59  \n")
+                        text_file.write("#SBATCH -t 0-2:59  \n")
                         text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
                         # text_file.write("#SBATCH --gres=gpu\n")
                         text_file.write("#SBATCH -c 1 \n")
