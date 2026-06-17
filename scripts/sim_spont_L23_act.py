@@ -12,17 +12,15 @@ import time
 from tqdm import tqdm
 
 import numpy as np
-from scipy.interpolate import CubicSpline
 from scipy import integrate
-from scipy.signal import argrelmin,argrelmax
 from scipy.stats import norm,gamma
-
-import analyze_func as af
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_patt', '-npt', help='number of spontaneous patterns',type=int, default=50)
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--patt_cv', '-pcv', help='input coefficient of variation',type=float, default=0.65)
+parser.add_argument('--spat_freq', '-sf', help='input spatial frequency decay length',type=float, default=8)
+parser.add_argument('--inp_str', '-is', help='strength of feedforward input',type=float, default=1.0)
 parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
 args = vars(parser.parse_args())
@@ -30,6 +28,8 @@ n_patt = int(args['n_patt'])
 # n_rpt = int(args['n_rpt'])
 n_int= int(args['n_int'])
 patt_cv = args['patt_cv']
+spat_freq = args['spat_freq']
+inp_str = args['inp_str']
 seed = int(args['seed'])
 saverates = args['saverates']
 
@@ -47,7 +47,7 @@ res_dir = res_dir + 'L23_sel/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
-res_file = res_dir + 'spont_cv={:.2f}_seed={:d}.pkl'.format(patt_cv,seed)
+res_file = res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(patt_cv,spat_freq,inp_str,seed)
 
 res_dict = {}
 
@@ -69,7 +69,7 @@ patts_fft[:,0,0] = 0 # remove DC component
 freqs = np.fft.fftfreq(N,1/N)
 freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
 
-decay = 8
+decay = spat_freq
 patts_fft *= np.exp(-0.5*freqs**2/decay**2)[None,:,:]
 
 patts = np.real(np.fft.ifft2(patts_fft).reshape(npatt,-1))
@@ -160,9 +160,9 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,ker
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
         
-        net_ee = Wee@ye + ff_inp
+        net_ee = Wee@ye + ff_inp[:N**2]
         net_ei = Wei@yi
-        net_ie = Wie@ye + ff_inp
+        net_ie = Wie@ye + ff_inp[N**2:]
         net_ii = Wii@yi
         
         dx = np.zeros_like(x)
@@ -235,14 +235,15 @@ def get_sheet_resps(params,N):
     norm = kern_i.sum(axis=1).mean(axis=0)
     kern_i /= norm
     
-    thresh_e = -params[7]
-    thresh_i = -params[8]
+    thresh_e = -(1-inp_str)*params[7]
+    thresh_i = -(1-inp_str)*params[8]
     
     tsamp = np.array([nwrm-1])
     resps = np.zeros((2,N**2,npatt))
     for patt_idx,patt in tqdm(enumerate(patts)):
+        e_i_patt = inp_str*np.concatenate((params[7]*patt,params[8]*patts[(patt_idx+1)%npatt]))
         def ff_inp(t):
-            return patt
+            return e_i_patt
         resps[:,:,patt_idx] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                 np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                 ff_inp,Jee,Jei,Jie,Jii,
