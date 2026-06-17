@@ -91,81 +91,83 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = [#'','band',
-            'band_4','band_8','band_12']
-    seeds = range(20)
+    maps = ['','band']#,
+            #'band_4','band_8','band_12']
+    inp_seeds = range(20)
+    rec_seeds = range(5)
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
             if map_type == '':
                 static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),#(1,0,0,0,0),
-                                                   (0,1,0,0,0),#(1,1,0,0,0),
-                                                   (0,0,1,0,0),(0,0,0,1,0),
+                                                   #(0,1,0,0,0),#(1,1,0,0,0),
+                                                   #(0,0,1,0,0),(0,0,0,1,0),
                                                    (0,0,0,0,1),#(1,0,0,0,1),
-                                                   (0,-1,0,0,1),#(1,-1,0,0,1),
-                                                   (0,0,1,0,1),(0,0,0,1,1)]
+                                                   (0,-1,0,0,1),]#(1,-1,0,0,1),
+                                                   #(0,0,1,0,1),(0,0,0,1,1)]
             else:
                 static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
             for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
-                for seed in seeds:
-                    #--------------------------------------------------------------------------
-                    # Make SBTACH
-                    inpath = currwd + "/sim_L4_act_L23_sel.py"
-                    c1 = "{:s} -s {:d} -no {:d} -np {:d} -r 1".format(
-                            inpath,seed,n_ori,n_phs)
-                    res_dir = './../results/L23_sel/'
-                    if static == 1:
-                        c1 = c1 + " -st 1"
-                        res_dir = res_dir + 'static_'
-                    if map_type != '':
-                        c1 = c1 + " -m {:s}".format(map_type)
-                        res_dir = res_dir + '{:s}_'.format(map_type)
-                    if phase == 1:
-                        c1 = c1 + " -ap 1"
-                        res_dir = res_dir + 'phase_'
-                    elif phase == -1:
-                        c1 = c1 + " -rp 1"
-                        res_dir = res_dir + 'rphase_'
-                    if orisel == 1:
-                        c1 = c1 + " -aos 1"
-                        res_dir = res_dir + 'orisel_'
-                    if sandp == 1:
-                        c1 = c1 + " -asp 1"
-                        res_dir = res_dir + 'sandp_'
-                    if ffl4 == 1:
-                        c1 = c1 + " -aff 1"
-                        res_dir = res_dir + 'ffl4_'
-                    if os.path.isfile(res_dir+'seed={:d}.pkl'.format(seed)):
-                        continue
+                for inp_seed in inp_seeds:
+                    for rec_seed in rec_seeds:
+                        #--------------------------------------------------------------------------
+                        # Make SBTACH
+                        inpath = currwd + "/sim_L4_act_L23_sel.py"
+                        c1 = "{:s} -is {:d} -rs {:d} -no {:d} -np {:d} -r 1".format(
+                                inpath,inp_seed,rec_seed,n_ori,n_phs)
+                        res_dir = './../results/L23_sel/'
+                        if static == 1:
+                            c1 = c1 + " -st 1"
+                            res_dir = res_dir + 'static_'
+                        if map_type != '':
+                            c1 = c1 + " -m {:s}".format(map_type)
+                            res_dir = res_dir + '{:s}_'.format(map_type)
+                        if phase == 1:
+                            c1 = c1 + " -ap 1"
+                            res_dir = res_dir + 'phase_'
+                        elif phase == -1:
+                            c1 = c1 + " -rp 1"
+                            res_dir = res_dir + 'rphase_'
+                        if orisel == 1:
+                            c1 = c1 + " -aos 1"
+                            res_dir = res_dir + 'orisel_'
+                        if sandp == 1:
+                            c1 = c1 + " -asp 1"
+                            res_dir = res_dir + 'sandp_'
+                        if ffl4 == 1:
+                            c1 = c1 + " -aff 1"
+                            res_dir = res_dir + 'ffl4_'
+                        if os.path.isfile(res_dir+'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)):
+                            continue
 
-                    jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}_seed={:d}".format(
-                        'sim_L4_act_L23_sel',map_type,static,phase,orisel,sandp,ffl4,seed)
+                        jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}_inp_seed={:d}_rec_seed={:d}".format(
+                            'sim_L4_act_L23_sel',map_type,static,phase,orisel,sandp,ffl4,inp_seed,rec_seed)
 
-                    if not args2.test:
-                        jobnameDir=os.path.join(temp_dir, jobname)
-                        text_file=open(jobnameDir, "w");
-                        os. system("chmod u+x "+ jobnameDir)
-                        text_file.write("#!/bin/sh \n")
-                        if cluster=='haba' or cluster=='moto' or cluster=='burg':
-                            text_file.write("#SBATCH --account=theory \n")
-                        text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                        text_file.write("#SBATCH -t 0-2:59  \n")
-                        text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
-                        # text_file.write("#SBATCH --gres=gpu\n")
-                        text_file.write("#SBATCH -c 1 \n")
-                        text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
-                        text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
-                        text_file.write("python  -W ignore " + c1+" \n")
-                        text_file.write("echo $PATH  \n")
-                        text_file.write("exit 0  \n")
-                        text_file.close()
+                        if not args2.test:
+                            jobnameDir=os.path.join(temp_dir, jobname)
+                            text_file=open(jobnameDir, "w");
+                            os. system("chmod u+x "+ jobnameDir)
+                            text_file.write("#!/bin/sh \n")
+                            if cluster=='haba' or cluster=='moto' or cluster=='burg':
+                                text_file.write("#SBATCH --account=theory \n")
+                            text_file.write("#SBATCH --job-name="+jobname+ "\n")
+                            text_file.write("#SBATCH -t 0-2:59  \n")
+                            text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
+                            # text_file.write("#SBATCH --gres=gpu\n")
+                            text_file.write("#SBATCH -c 1 \n")
+                            text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
+                            text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
+                            text_file.write("python  -W ignore " + c1+" \n")
+                            text_file.write("echo $PATH  \n")
+                            text_file.write("exit 0  \n")
+                            text_file.close()
 
-                        if cluster=='axon':
-                            os.system("sbatch -p burst " +jobnameDir);
+                            if cluster=='axon':
+                                os.system("sbatch -p burst " +jobnameDir);
+                            else:
+                                os.system("sbatch " +jobnameDir);
                         else:
-                            os.system("sbatch " +jobnameDir);
-                    else:
-                        print (c1)
+                            print (c1)
 
 
 if __name__ == "__main__":

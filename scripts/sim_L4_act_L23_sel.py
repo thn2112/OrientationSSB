@@ -21,7 +21,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
 parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
-parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
+parser.add_argument('--inp_seed', '-is', help='seed for L4 model input',type=int, default=0)
+parser.add_argument('--rec_seed', '-rs', help='seed for recurrent connectivity',type=int, default=0)
 parser.add_argument('--add_phase', '-ap', help='add phase selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--remove_phase', '-rp', help='remove phase selectivity from L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
@@ -35,7 +36,8 @@ n_ori = int(args['n_ori'])
 n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
 n_int= int(args['n_int'])
-seed = int(args['seed'])
+inp_seed = int(args['inp_seed'])
+rec_seed = int(args['rec_seed'])
 add_phase = args['add_phase']
 remove_phase = args['remove_phase']
 add_orisel = args['add_orisel']
@@ -72,16 +74,16 @@ if add_sandp:
     res_dir = res_dir + 'sandp_'
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
-res_file = res_dir + 'seed={:d}.pkl'.format(seed)
+res_file = res_dir + 'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)
 
 res_dict = {}
 
 # load L4 responses
 if args['map'] is None:
-    with open('./../results/L4_sel/seed={:d}.pkl'.format(seed), 'rb') as handle:
+    with open('./../results/L4_sel/seed={:d}.pkl'.format(inp_seed), 'rb') as handle:
         L4_res_dict = pickle.load(handle)
 else:
-    with open('./../results/L4_sel/{:s}_seed={:d}.pkl'.format(args['map'],seed), 'rb') as handle:
+    with open('./../results/L4_sel/{:s}_seed={:d}.pkl'.format(args['map'],inp_seed), 'rb') as handle:
         L4_res_dict = pickle.load(handle)
 
 if add_ffl4:
@@ -106,7 +108,7 @@ if add_orisel:
     L4_norm_phase_tuning = np.fmax(1e-12,L4_rates / np.nanmean(L4_rates,axis=(-1),keepdims=True))
     L4_rates = L4_norm_phase_tuning * L4_orisel_rates[:,:,None]
 if add_sandp:
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(inp_seed)
     L4_rates = rng.permutation(L4_rates)
 
 # Compute distance matrix for connectivity kernel
@@ -172,7 +174,7 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,ker
     xin = xin0.copy()
     xig = xig0.copy()
     
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(rec_seed)
     gam_dist = gamma(a=1/(het_lev**2),scale=het_lev**2)
     
     Wee = Jee*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))
