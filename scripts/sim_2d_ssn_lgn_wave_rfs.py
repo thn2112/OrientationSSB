@@ -113,7 +113,7 @@ w_prm_dict = {
 
 w_prm_dict.update({
     'wff_sum': wff_sum,
-    'inh_inp_fact': 0.0,
+    'inh_inp_fact': 1.0,
     'wee_sum': 10**log10JEE * (1+w_prm_dict['broad_frac_e']),
     'wei_sum': 10**log10JEI * (1+w_prm_dict['broad_frac_i']),
     'wie_sum': 10**log10JIE * (1+w_prm_dict['broad_frac_e']),
@@ -137,13 +137,13 @@ def init_net(
     print(n_lgn,'LGN cells')
     
     if mode == 'spont':
-        prune_lev = 0.5
+        prune_lev = 0.2
     else:
-        prune_lev = 0.57
+        prune_lev = 0.4
 
     if n_iter==0: # starting a new simulation, must initialize the system
         net = Model(n_grid=n_grid,n_e=n_e,n_i=n_i,n_x=n_x,seed=seed,
-                    s_x=s_x,s_s=s_s,gain_i=gain_i,
+                    s_x=s_x,s_s=s_s,gain_i=gain_i*(n_iter+1)/50,
                     prune=prune,prune_lev=prune_lev,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
                     w_prm_dict=w_prm_dict,
                     rx_wave_start=lgn_spikes[13])#lgn_spikes[26])
@@ -153,7 +153,7 @@ def init_net(
             res_dict = pickle.load(handle)
             
         net = Model(n_grid=n_grid,n_e=n_e,n_i=n_i,n_x=n_x,
-                    s_x=s_x,s_s=s_s,gain_i=gain_i,
+                    s_x=s_x,s_s=s_s,gain_i=gain_i*(n_iter+1)/50,
                     prune=prune,prune_lev=prune_lev,rec_e_plast=False,rec_i_plast=rec_plast,rec_i_ltd=rec_i_ltd,
                     w_prm_dict=w_prm_dict,init_dict=res_dict)
         
@@ -177,8 +177,8 @@ def run_iter(
     print(n_lgn,'LGN cells')
 
     # set inhibitory input level to slowly ramp with development
-    net.inh_inp_fact = np.fmin(1,n_iter/50)
-
+    # net.inh_inp_fact = np.fmin(1,n_iter/50)
+    
     start = time.process_time()
     for idx in range(n_frame):
         rx = lgn_spikes[idx]
