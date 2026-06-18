@@ -90,44 +90,48 @@ def runjobs():
     time.sleep(0.2)
     
     num_seeds = 20
-    pcvs = [0.5,0.65,0.8,1.0]
+    pcvs = [0.5,0.75,1.0]
+    sfs = [8]
+    iss = [0.5,0.75,1.0]
 
     with TemporaryDirectory() as temp_dir:
         for pcv in pcvs:
-            #--------------------------------------------------------------------------
-            # Make SBTACH
-            inpath = currwd + "/analyze_L23_spont.py"
-            c1 = "{:s} -s {:d} -npt {:d} -pcv {:.2f}".format(
-                    inpath,num_seeds,n_patt,pcv)
+            for sf in sfs:
+                for inp_str in iss:
+                    #--------------------------------------------------------------------------
+                    # Make SBTACH
+                    inpath = currwd + "/analyze_L23_spont.py"
+                    c1 = "{:s} -s {:d} -npt {:d} -pcv {:.2f} -sf {:d} -is {:.1f}".format(
+                            inpath,num_seeds,n_patt,pcv,sf,inp_str)
 
-            jobname="{:s}_cv={:.2f}".format(
-                'analyze_L23_spont',pcv)
-            
-            if not args2.test:
-                jobnameDir=os.path.join(temp_dir, jobname)
-                text_file=open(jobnameDir, "w");
-                os. system("chmod u+x "+ jobnameDir)
-                text_file.write("#!/bin/sh \n")
-                if cluster=='haba' or cluster=='moto' or cluster=='burg':
-                    text_file.write("#SBATCH --account=theory \n")
-                text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                text_file.write("#SBATCH -t 0-2:59  \n")
-                text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
-                # text_file.write("#SBATCH --gres=gpu\n")
-                text_file.write("#SBATCH -c 1 \n")
-                text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
-                text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
-                text_file.write("python  -W ignore " + c1+" \n")
-                text_file.write("echo $PATH  \n")
-                text_file.write("exit 0  \n")
-                text_file.close()
+                    jobname="{:s}_cv={:.2f}_sf={:d}_is={:.1f}".format(
+                        'analyze_L23_spont',pcv,sf,inp_str)
+                    
+                    if not args2.test:
+                        jobnameDir=os.path.join(temp_dir, jobname)
+                        text_file=open(jobnameDir, "w");
+                        os. system("chmod u+x "+ jobnameDir)
+                        text_file.write("#!/bin/sh \n")
+                        if cluster=='haba' or cluster=='moto' or cluster=='burg':
+                            text_file.write("#SBATCH --account=theory \n")
+                        text_file.write("#SBATCH --job-name="+jobname+ "\n")
+                        text_file.write("#SBATCH -t 0-2:59  \n")
+                        text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
+                        # text_file.write("#SBATCH --gres=gpu\n")
+                        text_file.write("#SBATCH -c 1 \n")
+                        text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
+                        text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
+                        text_file.write("python  -W ignore " + c1+" \n")
+                        text_file.write("echo $PATH  \n")
+                        text_file.write("exit 0  \n")
+                        text_file.close()
 
-                if cluster=='axon':
-                    os.system("sbatch -p burst " +jobnameDir);
-                else:
-                    os.system("sbatch " +jobnameDir);
-            else:
-                print (c1)
+                        if cluster=='axon':
+                            os.system("sbatch -p burst " +jobnameDir);
+                        else:
+                            os.system("sbatch " +jobnameDir);
+                    else:
+                        print (c1)
 
 
 if __name__ == "__main__":

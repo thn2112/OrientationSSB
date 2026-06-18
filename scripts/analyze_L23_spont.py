@@ -19,10 +19,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--n_patt', '-npt', help='number of spontaneous patterns',type=int, default=50)
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--patt_cv', '-pcv', help='input coefficient of variation',type=float, default=0.65)
+parser.add_argument('--spat_freq', '-sf', help='input spatial frequency decay length',type=int, default=8)
+parser.add_argument('--inp_str', '-is', help='strength of feedforward input',type=float, default=1.0)
 parser.add_argument('--num_seeds', '-s', help='number of seeds to average over',type=int, default=0)
 args = vars(parser.parse_args())
 n_patt = int(args['n_patt'])
 patt_cv = float(args['patt_cv'])
+spat_freq = args['spat_freq']
+inp_str = args['inp_str']
 # n_rpt = int(args['n_rpt'])
 n_int= int(args['n_int'])
 num_seeds = int(args['num_seeds'])
@@ -57,7 +61,7 @@ dims = np.ones(num_seeds)*np.nan
 
 for seed_idx in tqdm(range(num_seeds)):
     try:
-        with open(res_dir + 'spont_cv={:.2f}_seed={:d}.pkl'.format(patt_cv,seed_idx),'rb') as handle:
+        with open(res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(patt_cv,spat_freq,inp_str,seed_idx),'rb') as handle:
             file_dict = pickle.load(handle)
     except:
         continue
@@ -101,5 +105,5 @@ res_dict['rate_corr_curves'] = rate_corr_curves
 res_dict['mods'] = mods
 res_dict['dims'] = dims
 
-with open(res_dir + f'spont_cv={patt_cv:.2f}_analysis.pkl', 'wb') as handle:
+with open(res_dir + f'spont_cv={patt_cv:.2f}_spat_freq={spat_freq:d}_inp_str={inp_str:.1f}_analysis.pkl', 'wb') as handle:
     pickle.dump(res_dict,handle)
