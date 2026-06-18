@@ -20,7 +20,7 @@ parser.add_argument('--n_patt', '-npt', help='number of spontaneous patterns',ty
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--patt_cv', '-pcv', help='input coefficient of variation',type=float, default=0.65)
 parser.add_argument('--spat_freq', '-sf', help='input spatial frequency decay length',type=int, default=8)
-parser.add_argument('--inp_str', '-is', help='strength of feedforward input',type=float, default=1.0)
+parser.add_argument('--inp_str', '-istr', help='mean of feedforward input',type=float, default=1.0)
 parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
 args = vars(parser.parse_args())
@@ -81,7 +81,7 @@ for i in range(10):
     patts /= np.std(patts,axis=0,keepdims=True)
     
 gam_dist = gamma(a=1/(patt_cv**2),scale=patt_cv**2)
-patts = gam_dist.ppf(norm.cdf(patts))
+patts = (gam_dist.ppf(norm.cdf(patts)) - 1)
 
 freqs = np.fft.fftfreq(N,1/N)
 freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
@@ -160,9 +160,9 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,ker
         ye = np.fmin(1e5,np.fmax(0,xea+xen+xeg-threshe)**ne)
         yi = np.fmin(1e5,np.fmax(0,xia+xin+xig-threshi)**ni)
         
-        net_ee = Wee@ye + ff_inp[:N**2]
+        net_ee = Wee@ye + ff_inp
         net_ei = Wei@yi
-        net_ie = Wie@ye + ff_inp[N**2:]
+        net_ie = Wie@ye + ff_inp
         net_ii = Wii@yi
         
         dx = np.zeros_like(x)
@@ -235,15 +235,14 @@ def get_sheet_resps(params,N):
     norm = kern_i.sum(axis=1).mean(axis=0)
     kern_i /= norm
     
-    thresh_e = -(1-inp_str)*params[7]
-    thresh_i = -(1-inp_str)*params[8]
+    thresh_e = -params[7]
+    thresh_i = -params[8]
     
     tsamp = np.array([nwrm-1])
     resps = np.zeros((2,N**2,npatt))
     for patt_idx,patt in tqdm(enumerate(patts)):
-        e_i_patt = inp_str*np.concatenate((params[7]*patt,params[8]*patts[(patt_idx+1)%npatt]))
         def ff_inp(t):
-            return e_i_patt
+            return inp_str*patt
         resps[:,:,patt_idx] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                 np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                 ff_inp,Jee,Jei,Jie,Jii,
