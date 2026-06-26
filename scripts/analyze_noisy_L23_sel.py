@@ -14,7 +14,7 @@ from scipy.interpolate import interp1d
 from scipy import integrate
 
 import analyze_func as af
-import map_func as mf
+from map_func import gen_corr_inps
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
@@ -29,6 +29,7 @@ parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper 
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
 parser.add_argument('--num_inp_seeds', '-inps', help='number of seeds to average over',type=int, default=0)
 parser.add_argument('--num_rec_seeds', '-recs', help='number of seeds to average over',type=int, default=0)
+parser.add_argument('--num_noise_seeds', '-noises', help='number of seeds to average over',type=int, default=0)
 parser.add_argument('--num_samps', '-sa', help='number of samples from each seed to save',type=int, default=100)
 args = vars(parser.parse_args())
 n_ori = int(args['n_ori'])
@@ -43,6 +44,7 @@ add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
 num_inp_seeds = int(args['num_inp_seeds'])
 num_rec_seeds = int(args['num_rec_seeds'])
+num_noise_seeds = int(args['num_noise_seeds'])
 num_samps = int(args['num_samps'])
 
 N = 60
@@ -56,6 +58,8 @@ l4_dir = res_dir + 'L4_sel/'
 res_dir = res_dir + 'L23_sel/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
+    
+res_dir = res_dir + 'noisy_'
 
 if static:
     res_dir = res_dir + 'static_'
@@ -141,7 +145,14 @@ for inp_seed_idx in range(num_inp_seeds):
         rng = np.random.default_rng(inp_seed_idx)
         l4_rates[0] = rng.permutation(l4_rates[0])
         
-    l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates)
+    l4_rates = np.tile(l4_rates.reshape((1,1,2,N**2,n_ori,n_phs)),(num_noise_seeds,3,1,1,1,1))
+    
+    t_eval = np.arange(6*n_phs,9*n_phs) / (3*n_phs)
+    for noise_seed_idx in range(num_noise_seeds):
+        noise_inps = gen_corr_inps(np.random.default_rng(noise_seed_idx),dt=0.05/(3*n_phs),return_itp=False)(t_eval).T
+        l4_rates[noise_seed_idx] += 0.3*noise_inps.reshape(N**2,3,n_phs).transpose(1,0,2)[:,None,:,None,:]
+    
+    l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates.mean((0,1)))
     l4_dict['L4_rate_opm'] = l4_rate_opm.reshape(2,-1)
     l4_dict['L4_rate_mr'] = l4_rate_MR.reshape(2,-1)
     l4_dict['L4_rates'] = l4_rates * np.nanmean(l4_dict['L4_rates'],axis=(-2,-1),keepdims=True)
@@ -175,8 +186,8 @@ for inp_seed_idx in range(num_inp_seeds):
         _,inp_fps = af.get_fps(inp_opm)
         _,rate_fps = af.get_fps(rate_opm)
         
-        _,inp_corr_curve = af.get_corr(l4_rates[0].reshape(N**2,-1),nbins=nbins)
-        rate_corr,rate_corr_curve = af.get_corr(file_dict['L23_rates'][0].reshape(N**2,-1),nbins=nbins)
+        _,inp_corr_curve = af.get_corr(l4_rates[:,:,0].transpose(2,0,1,3,4).reshape(N**2,-1),nbins=nbins)
+        rate_corr,rate_corr_curve = af.get_corr(file_dict['L23_rates'][:,:,0].transpose(2,0,1,3,4).reshape(N**2,-1),nbins=nbins)
         
         arg_min = np.argmin(rate_corr_curve)
         corr_mins = rate_corr_curve[arg_min]

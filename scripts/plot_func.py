@@ -21,8 +21,9 @@ def ytitle(ax,text,xloc=-0.25,**kwargs):
     ax.text(xloc,0.5,text,horizontalalignment='right',verticalalignment='center',
         multialignment='center',rotation='vertical',transform=ax.transAxes,**kwargs)
     
-def add_cbar(fig,ax,plot,orientation='vertical',**kwargs):
-    cax = add_subax(ax,orientation)
+def add_cbar(fig,ax,plot,orientation='vertical',cax=None,**kwargs):
+    if cax is None:
+        cax = add_subax(ax,orientation)
     return fig.colorbar(plot, cax=cax, orientation=orientation, **kwargs)
 
 def add_subax(ax,orientation,size='5%',pad=0.05):
@@ -46,11 +47,11 @@ def imshow(fig,ax,A,hide_ticks=True,cmap='RdBu_r',**kwargs):
         ax.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
     plot = ax.imshow(A,cmap=cmap,**kwargs)
 
-def imshowbar(fig,ax,A,hide_ticks=True,cmap='RdBu_r',**kwargs):
+def imshowbar(fig,ax,A,hide_ticks=True,cmap='RdBu_r',cax=None,**kwargs):
     if hide_ticks:
         ax.tick_params(left=False, right=False, labelleft=False, labelbottom=False, bottom=False)
     plot = ax.imshow(A,cmap=cmap,**kwargs)
-    return add_cbar(fig,ax,plot)
+    return add_cbar(fig,ax,plot,cax=cax)
 
 def doubimsh(fig,ax,A1,A2,hide_ticks=True,cmap_name='RdBu_r',vmin=0,vmax=1,**kwargs):
     if hide_ticks:

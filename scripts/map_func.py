@@ -1,5 +1,35 @@
 import numpy as np
 from scipy.stats import qmc
+from scipy.interpolate import PchipInterpolator
+from scipy.stats import norm,gamma
+
+def gen_corr_inps(N,rng,T=3,dt=0.05/(3*8),t_corr=0.02,noise_cv=5,decay_freq=8,return_itp=True):
+    npatt = int(np.round(T/dt)) + 1
+
+    patts_fft = np.fft.fft2(rng.normal(size=(npatt,N,N)))
+    patts_fft[:,0,0] = 0 # remove DC component
+    freqs = np.fft.fftfreq(N,1/N)
+    freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
+
+    patts_fft *= np.exp(-0.5*freqs**2/decay_freq**2)[None,:,:]
+
+    patts = np.real(np.fft.ifft2(patts_fft).reshape(npatt,-1))
+    for i in range(10):
+        patts -= np.mean(patts,axis=-1,keepdims=True)
+        patts /= np.std(patts,axis=-1,keepdims=True)
+        
+        patts -= np.mean(patts,axis=0,keepdims=True)
+        patts /= np.std(patts,axis=0,keepdims=True)
+
+    for i in range(npatt-1):
+        patts[i+1] = patts[i]*np.exp(-dt/t_corr) + patts[i+1]*np.sqrt((1-np.exp(-2*dt/t_corr)))
+        patts[i+1] /= np.std(patts[i+1])
+        
+    gam_dist = gamma(a=1/(noise_cv**2),scale=noise_cv**2)
+    
+    if return_itp:
+        return PchipInterpolator(np.arange(npatt) * dt,gam_dist.ppf(norm.cdf(patts)))
+    return gam_dist.ppf(norm.cdf(patts))
 
 def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,kern_type='bandpass',seed=0):
     rng = np.random.default_rng(seed)

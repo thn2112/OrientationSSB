@@ -98,17 +98,18 @@ def runjobs():
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
             if map_type == '':
-                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),(1,0,0,0,0),
-                                                   (0,1,0,0,0),(1,1,0,0,0),
-                                                   (0,0,1,0,0),(0,0,0,1,0),
-                                                   (0,0,0,0,1),(1,0,0,0,1),
-                                                   (0,-1,0,0,1),(1,-1,0,0,1)]
+                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),#(1,0,0,0,0),
+                                                   #(0,1,0,0,0),#(1,1,0,0,0),
+                                                   #(0,0,1,0,0),(0,0,0,1,0),
+                                                   (0,0,0,0,1),#(1,0,0,0,1),
+                                                   (0,-1,0,0,1),]#(1,-1,0,0,1),
+                                                   #(0,0,1,0,1),(0,0,0,1,1)]
             else:
                 static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
             for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
                 #--------------------------------------------------------------------------
                 # Make SBTACH
-                inpath = currwd + "/analyze_L23_sel.py"
+                inpath = currwd + "/analyze_noisy_L23_sel.py"
                 c1 = "{:s} -inps {:d} -recs {:d} -no {:d} -np {:d}".format(
                         inpath,num_inp_seeds,num_rec_seeds,n_ori,n_phs)
                 if static == 1:
@@ -127,7 +128,7 @@ def runjobs():
                     c1 = c1 + " -aff 1"
 
                 jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}".format(
-                    'analyze_L23_sel',map_type,static,phase,orisel,sandp,ffl4)
+                    'analyze_noisy_L23_sel',map_type,static,phase,orisel,sandp,ffl4)
                 
                 if not args2.test:
                     jobnameDir=os.path.join(temp_dir, jobname)
