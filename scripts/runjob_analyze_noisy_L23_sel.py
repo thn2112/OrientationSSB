@@ -94,6 +94,7 @@ def runjobs():
     maps = ['','band']#,'band_4','band_8','band_12','band_16']
     num_inp_seeds = 20
     num_rec_seeds = 5
+    num_noise_seeds = 5
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
@@ -110,8 +111,8 @@ def runjobs():
                 #--------------------------------------------------------------------------
                 # Make SBTACH
                 inpath = currwd + "/analyze_noisy_L23_sel.py"
-                c1 = "{:s} -inps {:d} -recs {:d} -no {:d} -np {:d}".format(
-                        inpath,num_inp_seeds,num_rec_seeds,n_ori,n_phs)
+                c1 = "{:s} -inps {:d} -recs {:d} -noises {:d} -no {:d} -np {:d}".format(
+                        inpath,num_inp_seeds,num_rec_seeds,num_noise_seeds,n_ori,n_phs)
                 if static == 1:
                     c1 = c1 + " -st 1"
                 if map_type != '':
@@ -138,7 +139,7 @@ def runjobs():
                     if cluster=='haba' or cluster=='moto' or cluster=='burg':
                         text_file.write("#SBATCH --account=theory \n")
                     text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                    text_file.write("#SBATCH -t 0-2:59  \n")
+                    text_file.write("#SBATCH -t 0-11:59  \n")
                     text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
                     # text_file.write("#SBATCH --gres=gpu\n")
                     text_file.write("#SBATCH -c 1 \n")

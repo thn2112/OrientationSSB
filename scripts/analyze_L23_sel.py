@@ -91,20 +91,19 @@ dys = np.abs(ys[:,:,None,None] - ys[None,None,:,:])
 dys[dys > 0.5] = 1 - dys[dys > 0.5]
 dss = np.sqrt(dxs**2 + dys**2).reshape(N**2,N**2)
 
-idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
-inp_os_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-inp_po_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-inp_mr_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-inp_fpss = np.ones((num_inp_seeds,nbins))*np.nan
-inp_corr_curves = np.ones((num_inp_seeds,nbins))*np.nan
-rate_os_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-rate_po_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-rate_mr_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-rate_fpss = np.ones((num_inp_seeds,nbins))*np.nan
-rate_corr_curves = np.ones((num_inp_seeds,nbins))*np.nan
-mismatch_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-mods = np.ones(num_inp_seeds)*np.nan
-dims = np.ones(num_inp_seeds)*np.nan
+inp_os_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+inp_po_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+inp_mr_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+inp_fpss = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+inp_corr_curves = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+rate_os_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+rate_po_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+rate_mr_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+rate_fpss = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+rate_corr_curves = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+mismatch_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+mods = np.ones((num_inp_seeds,num_rec_seeds))*np.nan
+dims = np.ones((num_inp_seeds,num_rec_seeds))*np.nan
 
 with open(l4_dir + 'analysis.pkl', 'rb') as handle:
     l4_res_dict = pickle.load(handle)

@@ -96,19 +96,19 @@ dys[dys > 0.5] = 1 - dys[dys > 0.5]
 dss = np.sqrt(dxs**2 + dys**2).reshape(N**2,N**2)
 
 idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
-inp_os_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-inp_po_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-inp_mr_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-inp_fpss = np.ones((num_inp_seeds,nbins))*np.nan
-inp_corr_curves = np.ones((num_inp_seeds,nbins))*np.nan
-rate_os_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-rate_po_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-rate_mr_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-rate_fpss = np.ones((num_inp_seeds,nbins))*np.nan
-rate_corr_curves = np.ones((num_inp_seeds,nbins))*np.nan
-mismatch_samps = np.ones((num_inp_seeds,num_samps))*np.nan
-mods = np.ones(num_inp_seeds)*np.nan
-dims = np.ones(num_inp_seeds)*np.nan
+inp_os_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+inp_po_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+inp_mr_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+inp_fpss = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+inp_corr_curves = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+rate_os_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+rate_po_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+rate_mr_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+rate_fpss = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+rate_corr_curves = np.ones((num_inp_seeds,num_rec_seeds,nbins))*np.nan
+mismatch_samps = np.ones((num_inp_seeds,num_rec_seeds,num_samps))*np.nan
+mods = np.ones((num_inp_seeds,num_rec_seeds))*np.nan
+dims = np.ones((num_inp_seeds,num_rec_seeds))*np.nan
 
 with open(l4_dir + 'analysis.pkl', 'rb') as handle:
     l4_res_dict = pickle.load(handle)
@@ -149,7 +149,7 @@ for inp_seed_idx in range(num_inp_seeds):
     
     t_eval = np.arange(6*n_phs,9*n_phs) / (3*n_phs)
     for noise_seed_idx in range(num_noise_seeds):
-        noise_inps = gen_corr_inps(np.random.default_rng(noise_seed_idx),dt=0.05/(3*n_phs),return_itp=False)(t_eval).T
+        noise_inps = gen_corr_inps(N,np.random.default_rng(noise_seed_idx),dt=0.05/(3*n_phs),return_itp=False)(t_eval).T
         l4_rates[noise_seed_idx] += 0.3*noise_inps.reshape(N**2,3,n_phs).transpose(1,0,2)[:,None,:,None,:]
     
     l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates.mean((0,1)))
