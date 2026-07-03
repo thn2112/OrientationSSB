@@ -149,7 +149,7 @@ for inp_seed_idx in range(num_inp_seeds):
     
     t_eval = np.arange(6*n_phs,9*n_phs) / (3*n_phs)
     for noise_seed_idx in range(num_noise_seeds):
-        noise_inps = gen_corr_inps(N,np.random.default_rng(noise_seed_idx),dt=0.05/(3*n_phs),return_itp=False)(t_eval).T
+        noise_inps = gen_corr_inps(N,np.random.default_rng(noise_seed_idx),dt=0.05/(3*n_phs))(t_eval).T
         l4_rates[noise_seed_idx] += 0.3*noise_inps.reshape(N**2,3,n_phs).transpose(1,0,2)[:,None,:,None,:]
     
     l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates.mean((0,1)))
