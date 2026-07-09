@@ -325,14 +325,14 @@ def get_sheet_resps(params,N,noise_itp,noise_str=0.3):
         if static:
             for phs_idx,phs in enumerate(np.linspace(0,2*np.pi,n_phs,endpoint=False)):
                 def ff_inp(t):
-                    return 0.8*(L4_rates_itp(phs/(2*np.pi*3))[:,ori_idx] + noise_str*noise_itp(t))
+                    return (L4_rates_itp(phs/(2*np.pi*3))[:,ori_idx] + noise_str*noise_itp(t))/1.3
                 resps[:,:,ori_idx,phs_idx] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                         np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                         ff_inp,Jee,Jei,Jie,Jii,kern_e,kern_i,params[6],N,2,2,
                                         thresh_e,thresh_i,0,dt,nwrm/2,tsamp[0:1]/2)[:,:,-1]
         else:
             def ff_inp(t):
-                return L4_rates_itp(t)[:,ori_idx] + noise_str*noise_itp(t)
+                return (L4_rates_itp(t)[:,ori_idx] + noise_str*noise_itp(t))/1.3
             resps[:,:,ori_idx,:] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee,Jei,Jie,Jii,kern_e,kern_i,params[6],N,2,2,
