@@ -458,3 +458,12 @@ def scat_map_to_grid(scat_map,xs,ys,ngrid,per_pad=None,indexing='xy',method='lin
                         scat_map_extended.flatten(),(grid_xs,grid_ys),method=method)
     
     return grid_map
+    
+def get_phase_func(mr):    
+    alpha = np.interp(mr,np.load('./../notebooks/mrs.npy'),np.load('./../notebooks/alphs.npy'))
+    r0 = np.interp(alpha,np.load('./../notebooks/alphs.npy'),np.load('./../notebooks/r0s.npy'))
+    
+    def phase_func(phs):
+        return np.fmax(0,(1-alpha) + alpha*np.cos(phs)) / r0
+    
+    return phase_func

@@ -318,12 +318,3 @@ def gaborprops(on_field,of_field):
         'centroid': (popt[6], popt[7]),
         'area': np.pi * popt[0] * popt[1] * 8
     }
-    
-def get_phase_func(mr):    
-    alpha = np.interp(mr,np.load('./../notebooks/mrs.npy'),np.load('./../notebooks/alphs.npy'))
-    r0 = np.interp(alpha,np.load('./../notebooks/alphs.npy'),np.load('./../notebooks/r0s.npy'))
-    
-    def phase_func(phs):
-        return np.fmax(0,(1-alpha) + alpha*np.cos(phs)) / r0
-    
-    return phase_func

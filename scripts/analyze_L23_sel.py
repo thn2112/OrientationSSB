@@ -12,7 +12,6 @@ import time
 import numpy as np
 
 import analyze_func as af
-from rf_analyze_func import get_phase_func
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
@@ -123,7 +122,7 @@ for inp_seed_idx in range(num_inp_seeds):
         rng = np.random.default_rng(inp_seed_idx)
         l4_rates[0] = rng.permutation(l4_rates[0])
     if mod_rat is not None:
-        phase_func = get_phase_func(mod_rat)
+        phase_func = af.get_phase_func(mod_rat)
         _,_,phs = af.calc_dc_ac_comp(l4_rates)
         l4_phase_rates = phase_func(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,None,:]-phs[:,:,:,None])
         l4_phase_rates *= np.nanmean(l4_rates,axis=(-1),keepdims=True) \

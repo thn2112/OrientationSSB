@@ -15,7 +15,6 @@ from scipy import integrate
 from scipy.stats import norm,gamma
 
 import analyze_func as af
-from rf_analyze_func import get_phase_func
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
@@ -104,7 +103,7 @@ if add_sandp:
     L4_rates = rng.permutation(L4_rates)
     L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
 if mod_rat is not None:
-    phase_func = get_phase_func(mod_rat)
+    phase_func = af.get_phase_func(mod_rat)
     _,_,phs = af.calc_dc_ac_comp(L4_rates)
     L4_phase_rates = phase_func(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,:]-phs[:,:,None])
     L4_phase_rates *= np.nanmean(L4_rates,axis=(-1),keepdims=True) \
