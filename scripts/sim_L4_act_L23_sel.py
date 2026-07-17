@@ -12,22 +12,21 @@ import time
 import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy import integrate
-from scipy.signal import argrelmin,argrelmax
 from scipy.stats import norm,gamma
 
 import analyze_func as af
+from rf_analyze_func import get_phase_func
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
 parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
-parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--inp_seed', '-is', help='seed for L4 model input',type=int, default=0)
 parser.add_argument('--rec_seed', '-rs', help='seed for recurrent connectivity',type=int, default=0)
-parser.add_argument('--add_phase', '-ap', help='add phase selectivity to L4 inputs or not',type=bool, default=False)
-parser.add_argument('--remove_phase', '-rp', help='remove phase selectivity from L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
+parser.add_argument('--mod_rat', '-mr', help='',type=float, default=None)
+parser.add_argument('--w_arbor', '-w', help='width of L4 to L2/3 arbor in pixels',type=int, default=0)
 parser.add_argument('--map', '-m', help='whether to switch to a different L4 map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
@@ -35,14 +34,13 @@ args = vars(parser.parse_args())
 n_ori = int(args['n_ori'])
 n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
-n_int= int(args['n_int'])
 inp_seed = int(args['inp_seed'])
 rec_seed = int(args['rec_seed'])
-add_phase = args['add_phase']
-remove_phase = args['remove_phase']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
+w_arbor = args['w_arbor']
+mod_rat = args['mod_rat']
 static = args['static']
 saverates = args['saverates']
 
@@ -64,16 +62,17 @@ if static:
     res_dir = res_dir + 'static_'
 if args['map'] is not None:
     res_dir = res_dir + args['map'] + '_'
-if add_phase:
-    res_dir = res_dir + 'phase_'
-if remove_phase:
-    res_dir = res_dir + 'rphase_'
 if add_orisel:
     res_dir = res_dir + 'orisel_'
 if add_sandp:
     res_dir = res_dir + 'sandp_'
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
+if mod_rat is not None:
+    mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
+    res_dir = res_dir + f'mr={mod_rat:.1f}'
+if w_arbor > 0:
+    res_dir = res_dir + f'w_arb={w_arbor:d}'
 res_file = res_dir + 'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)
 
 res_dict = {}
@@ -94,13 +93,6 @@ else:
     L4_rate_opm = L4_res_dict['L4_rate_opm'][0]
 
 L4_rates /= np.nanmean(L4_rates,axis=(-2,-1),keepdims=True)
-if add_phase:
-    _,_,phs = af.calc_dc_ac_comp(L4_rates)
-    L4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_phs,endpoint=False)[None,None,:]-phs[:,:,None]))
-    L4_phase_rates *= np.nanmean(L4_rates,axis=(-1),keepdims=True) / np.nanmean(L4_phase_rates,axis=(-1),keepdims=True)
-    L4_rates = L4_phase_rates
-elif remove_phase:
-    L4_rates = np.nanmean(L4_rates,axis=(-1),keepdims=True) * np.ones_like(L4_rates)
 if add_orisel:
     _,_,doub_po = af.calc_dc_ac_comp(L4_rates.mean(-1))
     L4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None]))
@@ -110,6 +102,24 @@ if add_orisel:
 if add_sandp:
     rng = np.random.default_rng(inp_seed)
     L4_rates = rng.permutation(L4_rates)
+    L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
+if mod_rat is not None:
+    phase_func = get_phase_func(mod_rat)
+    _,_,phs = af.calc_dc_ac_comp(L4_rates)
+    L4_phase_rates = phase_func(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,:]-phs[:,:,None])
+    L4_phase_rates *= np.nanmean(L4_rates,axis=(-1),keepdims=True) \
+        / np.nanmean(L4_phase_rates,axis=(-1),keepdims=True)
+    L4_rates = L4_phase_rates
+if w_arbor > 0:
+    x,y = np.mgrid[:N,:N]
+    x[x > N//2] = N - x[x > N//2]
+    y[y > N//2] = N - y[y > N//2]
+    s2 = (x**2 + y**2)
+
+    L4_rates_fft = np.fft.fft2(L4_rates.T.reshape(-1,N,N))
+    L4_rates = np.fft.ifft2(L4_rates_fft * np.exp(-0.5*s2*(w_arbor/N)**2)).real
+    L4_rates = L4_rates.reshape(8,8,N**2).transpose(2,0,1)
+    L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
 
 # Compute distance matrix for connectivity kernel
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)

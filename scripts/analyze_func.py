@@ -12,6 +12,7 @@ from scipy.optimize import curve_fit
 from scipy.special import erf
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
+from scipy.signal import argrelmin,argrelmax
 
 def circ_corrcoef(x,y,P=2*np.pi):
     assert len(x) == len(y), "Input arrays must have the same length."
@@ -137,6 +138,17 @@ def get_corr(A,grid_axes=None,patt_axes=None,nbins=None,calc_err=False):
         return corr,corr_curve,corr_err
     else:
         return corr,corr_curve
+    
+def calc_mod(corr_curve):
+    arg_min = argrelmin(corr_curve)[0][0]
+    corr_min = corr_curve[arg_min]
+    loc_maxs = argrelmax(corr_curve)[0]
+    arg_max = loc_maxs[0]
+    if arg_max < arg_min:
+        arg_max = loc_maxs[1]
+    corr_max = corr_curve[arg_max]
+    mod = corr_max - corr_min
+    return mod
 
 def get_ori_sel(opm,calc_fft=True):
     N4 = opm.shape[0]
