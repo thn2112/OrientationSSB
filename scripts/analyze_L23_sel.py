@@ -35,7 +35,7 @@ add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
 w_arbor = args['w_arbor']
-mod_rat = args['mod_rate']
+mod_rat = args['mod_rat']
 num_inp_seeds = int(args['num_inp_seeds'])
 num_rec_seeds = int(args['num_rec_seeds'])
 num_samps = int(args['num_samps'])
@@ -68,6 +68,13 @@ if add_sandp:
     
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
+
+if mod_rat is not None:
+    mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
+    res_dir = res_dir + f'mr={mod_rat:.1f}_'
+
+if w_arbor > 0:
+    res_dir = res_dir + f'w_arb={w_arbor:d}_'
 
 res_dict = {}
 rng = np.random.default_rng(0)
@@ -134,9 +141,9 @@ for inp_seed_idx in range(num_inp_seeds):
         y[y > N//2] = N - y[y > N//2]
         s2 = (x**2 + y**2)
 
-        l4_rates_fft = np.fft.fft2(l4_rates.T.reshape(-1,N,N))
+        l4_rates_fft = np.fft.fft2(l4_rates.transpose(0,2,3,1).reshape(-1,N,N))
         l4_rates = np.fft.ifft2(l4_rates_fft * np.exp(-0.5*s2*(w_arbor/N)**2)).real
-        l4_rates = l4_rates.reshape(8,8,N**2).transpose(2,0,1)
+        l4_rates = l4_rates.reshape(2,8,8,N**2).transpose(0,3,1,2)
         
     l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates)
     l4_dict['L4_rate_opm'] = l4_rate_opm.reshape(2,-1)

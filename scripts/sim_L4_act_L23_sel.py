@@ -69,9 +69,9 @@ if add_ffl4:
     res_dir = res_dir + 'ffl4_'
 if mod_rat is not None:
     mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
-    res_dir = res_dir + f'mr={mod_rat:.1f}'
+    res_dir = res_dir + f'mr={mod_rat:.1f}_'
 if w_arbor > 0:
-    res_dir = res_dir + f'w_arb={w_arbor:d}'
+    res_dir = res_dir + f'w_arb={w_arbor:d}_'
 res_file = res_dir + 'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)
 
 res_dict = {}
