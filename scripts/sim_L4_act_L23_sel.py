@@ -115,7 +115,7 @@ if w_arbor > 0:
     y[y > N//2] = N - y[y > N//2]
     s2 = (x**2 + y**2)
 
-    L4_rates_fft = np.fft.fft2(L4_rates.T.reshape(-1,N,N))
+    L4_rates_fft = np.fft.fft2(L4_rates.transpose(1,2,0).reshape(-1,N,N))
     L4_rates = np.fft.ifft2(L4_rates_fft * np.exp(-0.5*s2*(w_arbor/N)**2)).real
     L4_rates = L4_rates.reshape(8,8,N**2).transpose(2,0,1)
     L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
