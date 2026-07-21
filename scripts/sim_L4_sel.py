@@ -19,7 +19,6 @@ import map_func as mf
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=8)
 parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=8)
-parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--map', '-m', help='type of map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
 parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
@@ -28,7 +27,6 @@ args = vars(parser.parse_args())
 n_ori = int(args['n_ori'])
 n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
-n_int= int(args['n_int'])
 static = args['static']
 seed = int(args['seed'])
 saverates = args['saverates']
@@ -68,6 +66,10 @@ if args['map'] is None or args['map'] == 'low':
     decay = 5
     sb_mult = 1
     opm_fft *= np.exp(-freqs/decay)
+elif 'dev' in args['map']:
+    decay = 5
+    sb_mult = 1
+    opm_fft *= 0.1 + np.exp(-freqs/decay)
 elif 'band' in args['map']:
     if args['map'] == 'band':
         peak = 6
@@ -253,8 +255,8 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
 
     c = 100
     thresh = c
-    nwrm = 6 * n_int * n_phs
-    dt = 1 / (n_int * n_phs * 3)
+    nwrm = 6 * n_phs
+    dt = 1 / (n_phs * 3)
     oris = np.linspace(0,np.pi,n_ori,endpoint=False)
 
     s_b = np.sqrt(sig2)*params[6]*sb_mult
@@ -268,7 +270,7 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
     gam_map_flat = gam_map.flatten()
     ori_map_flat = ori_map.flatten()
 
-    tsamp = nwrm-1 + np.arange(0,n_phs) * n_int
+    tsamp = nwrm-1 + np.arange(0,n_phs)
     inps = np.zeros((2,N**2,n_ori,n_phs))
     resps = np.zeros((2,N**2,n_ori,n_phs))
     for ori_idx,ori in enumerate(oris):
@@ -291,20 +293,10 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
             inp,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee,Jei,Jie,Jii,kern_n,kern_b,N,2,2,
-                                    thresh,thresh,0,dt,nwrm+n_int*n_phs,tsamp,
+                                    thresh,thresh,0,dt,nwrm+n_phs,tsamp,
                                     b_frac_e=params[4],b_frac_i=params[5])
             inps[:,:,ori_idx,:] = inp.reshape(2,N**2,n_phs)
             resps[:,:,ori_idx,:] = resp.reshape(2,N**2,n_phs)
-        # xea,xen,xeg,xia,xin,xig,resp = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-        #                          np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
-        #                          ff_inp,Jee,Jei,Jie,Jii,kern,N,2,2,
-        #                          thresh,thresh,0,dt,nwrm,lat_frac=params[4])
-        # resps[:,:,ori_idx,0] = resp.reshape(2,N**2)
-        # for phs_idx in range(n_phs-1):
-        #     xea,xen,xeg,xia,xin,xig,resp = integrate_sheet(xea,xen,xeg,xia,xin,xig,
-        #                          ff_inp,Jee,Jei,Jie,Jii,kern,N,2,2,
-        #                          thresh,thresh,phs_idx*n_int*dt,dt,n_int,lat_frac=params[4])
-        #     resps[:,:,ori_idx,phs_idx+1] = resp.reshape(2,N**2)
 
     return inps,resps
 
