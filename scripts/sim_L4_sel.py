@@ -66,10 +66,12 @@ if args['map'] is None or args['map'] == 'low':
     decay = 5
     sb_mult = 1
     opm_fft *= np.exp(-freqs/decay)
+    os_mult = 0.625
 elif 'dev' in args['map']:
     decay = 5
     sb_mult = 1
     opm_fft *= 0.1 + np.exp(-freqs/decay)
+    os_mult = 0.625
 elif 'band' in args['map']:
     if args['map'] == 'band':
         peak = 6
@@ -78,11 +80,12 @@ elif 'band' in args['map']:
         _,peak = args['map'].split('_')
         peak = float(peak)
         sb_mult = (6 / peak)**1.0
+    os_mult = 0.625
     opm_fft *= np.exp(-((freqs-peak)/2.5)**2)#np.heaviside(0.5 - np.abs(freqs-peak),0.5)
 
 L4_inp_opm = np.fft.ifft2(opm_fft)
 L4_inp_opm *= np.abs(L4_inp_opm)**1.6/np.abs(L4_inp_opm)
-L4_inp_opm *= 0.16 / np.median(np.abs(L4_inp_opm)) # normalize median to data
+L4_inp_opm *= os_mult * 0.16 / np.median(np.abs(L4_inp_opm)) # normalize median to data
 L4_inp_opm *= np.clip(np.abs(L4_inp_opm),0,0.8) / np.abs(L4_inp_opm) # clip max os to 0.8
 if args['map'] == 'sandp':
     L4_inp_opm = L4_inp_opm.flatten()
