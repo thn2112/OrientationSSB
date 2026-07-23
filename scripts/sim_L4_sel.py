@@ -337,11 +337,14 @@ def max_ori_one_hot(A,N,nori,nphs):
             one_hot[i,j,max_ori[i,j]] = 1
     return one_hot
 
-ff_opm = af.calc_OPM(max_ori_one_hot(L4_ff_inps[0],N,n_ori,n_phs))
+ff_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_ff_inps[0],N,n_ori,n_phs))
+ff_opm = af.calc_OPM(L4_ff_inps[0].mean(-1))
 ff_ppms = np.array([af.calc_OPM(L4_ff_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
-rec_opm = af.calc_OPM(max_ori_one_hot(L4_net_inps[0]-L4_ff_inps[0],N,n_ori,n_phs))
+rec_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_net_inps[0]-L4_ff_inps[0],N,n_ori,n_phs))
+rec_opm = af.calc_OPM((L4_net_inps[0]-L4_ff_inps[0]).mean(-1))
 rec_ppms = np.array([af.calc_OPM((L4_net_inps-L4_ff_inps)[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
-net_opm = af.calc_OPM(max_ori_one_hot(L4_net_inps[0],N,n_ori,n_phs))
+net_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_net_inps[0],N,n_ori,n_phs))
+net_opm = af.calc_OPM(L4_net_inps[0].mean(-1))
 net_ppms = np.array([af.calc_OPM(L4_net_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 
 res_dict['L4_inp_opm'] = L4_inp_opm
@@ -358,10 +361,13 @@ res_dict['L4_rate_mr'] = L4_rate_mr
 res_dict['L4_rate_ppms'] = L4_rate_ppms
 
 res_dict['ff_opm'] = ff_opm
+res_dict['ff_opm_one_hot'] = ff_opm_one_hot
 res_dict['ff_ppms'] = ff_ppms
 res_dict['rec_opm'] = rec_opm
+res_dict['rec_opm_one_hot'] = rec_opm_one_hot
 res_dict['rec_ppms'] = rec_ppms
 res_dict['net_opm'] = net_opm
+res_dict['net_opm_one_hot'] = net_opm_one_hot
 res_dict['net_ppms'] = net_ppms
 
 with open(res_file, 'wb') as handle:
