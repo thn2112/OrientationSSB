@@ -81,7 +81,7 @@ elif 'band' in args['map']:
 
 L4_inp_opm = np.fft.ifft2(opm_fft)
 L4_inp_opm *= np.abs(L4_inp_opm)**1.6/np.abs(L4_inp_opm)
-L4_inp_opm *= 0.1 / np.median(np.abs(L4_inp_opm)) # normalize median to data
+L4_inp_opm *= 0.12 / np.median(np.abs(L4_inp_opm)) # normalize median to data
 L4_inp_opm *= np.clip(np.abs(L4_inp_opm),0,0.8) / np.abs(L4_inp_opm) # clip max os to 0.8
 if args['map'] == 'sandp':
     L4_inp_opm = L4_inp_opm.flatten()
@@ -324,11 +324,11 @@ def compute_rec_input(params,rates):
     ye = rates[0]
     yi = rates[1]
     
-    broad_e = kern_b@(b_frac_e*Jee@ye + b_frac_i*Jei@yi)
-    broad_i = kern_b@(b_frac_e*Jie@ye + b_frac_i*Jii@yi)
+    broad_e = np.einsum('ij,jkl->ikl',kern_b,(b_frac_e*Jee*ye + b_frac_i*Jei*yi))
+    broad_i = np.einsum('ij,jkl->ikl',kern_b,(b_frac_e*Jie*ye + b_frac_i*Jii*yi))
     
-    narrow_e = kern_n@(Jee@ye + Jei@yi)
-    narrow_i = kern_n@(Jie@ye + Jii@yi)
+    narrow_e = np.einsum('ij,jkl->ikl',kern_n,(Jee*ye + Jei*yi))
+    narrow_i = np.einsum('ij,jkl->ikl',kern_n,(Jie*ye + Jii*yi))
     
     return np.stack(broad_e,broad_i), np.stack(narrow_e,narrow_i), np.stack(broad_e+narrow_e,broad_i+narrow_i)
 
