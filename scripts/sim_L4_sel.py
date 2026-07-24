@@ -330,7 +330,7 @@ def compute_rec_input(params,rates):
     narrow_e = np.einsum('ij,jkl->ikl',kern_n,(Jee*ye + Jei*yi))
     narrow_i = np.einsum('ij,jkl->ikl',kern_n,(Jie*ye + Jii*yi))
     
-    return np.stack(broad_e,broad_i), np.stack(narrow_e,narrow_i), np.stack(broad_e+narrow_e,broad_i+narrow_i)
+    return np.stack((broad_e,broad_i)), np.stack((narrow_e,narrow_i)), np.stack((broad_e+narrow_e,broad_i+narrow_i))
 
 L4_broad_inps, L4_narrow_inps, L4_rec_inps = compute_rec_input(params,L4_rates)
 
@@ -366,19 +366,19 @@ def max_ori_one_hot(A,N,nori,nphs):
     return one_hot
 
 ff_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_ff_inps[0],N,n_ori,n_phs))
-ff_opm = af.calc_OPM(L4_ff_inps[0].mean(-1).reshape(N,N))
+ff_opm = af.calc_OPM(L4_ff_inps[0].mean(-1)).reshape(N,N)
 ff_ppms = np.array([af.calc_OPM(L4_ff_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 rec_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_rec_inps[0],N,n_ori,n_phs))
-rec_opm = af.calc_OPM((L4_rec_inps[0]).mean(-1).reshape(N,N))
+rec_opm = af.calc_OPM((L4_rec_inps[0]).mean(-1)).reshape(N,N)
 rec_ppms = np.array([af.calc_OPM(L4_rec_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 broad_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_broad_inps[0],N,n_ori,n_phs))
-broad_opm = af.calc_OPM((L4_broad_inps[0]).mean(-1).reshape(N,N))
+broad_opm = af.calc_OPM((L4_broad_inps[0]).mean(-1)).reshape(N,N)
 broad_ppms = np.array([af.calc_OPM(L4_broad_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 narrow_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_narrow_inps[0],N,n_ori,n_phs))
-narrow_opm = af.calc_OPM((L4_narrow_inps[0]).mean(-1).reshape(N,N))
+narrow_opm = af.calc_OPM((L4_narrow_inps[0]).mean(-1)).reshape(N,N)
 narrow_ppms = np.array([af.calc_OPM(L4_narrow_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 net_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_net_inps[0],N,n_ori,n_phs))
-net_opm = af.calc_OPM(L4_net_inps[0].mean(-1).reshape(N,N))
+net_opm = af.calc_OPM(L4_net_inps[0].mean(-1)).reshape(N,N)
 net_ppms = np.array([af.calc_OPM(L4_net_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 
 res_dict['L4_inp_opm'] = L4_inp_opm
