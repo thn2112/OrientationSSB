@@ -66,12 +66,9 @@ if args['map'] is None or args['map'] == 'low':
     decay = 5
     sb_mult = 1
     opm_fft *= np.exp(-freqs/decay)
-    os_mult = 0.625
 elif 'dev' in args['map']:
-    decay = 5
     sb_mult = 1
-    opm_fft *= 0.1 + np.exp(-freqs/decay)
-    os_mult = 0.625
+    opm_fft *= np.exp(-freqs/2) + 0.5*np.exp(-freqs/50)#0.1 + np.exp(-freqs/decay)
 elif 'band' in args['map']:
     if args['map'] == 'band':
         peak = 6
@@ -80,12 +77,11 @@ elif 'band' in args['map']:
         _,peak = args['map'].split('_')
         peak = float(peak)
         sb_mult = (6 / peak)**1.0
-    os_mult = 0.625
     opm_fft *= np.exp(-((freqs-peak)/2.5)**2)#np.heaviside(0.5 - np.abs(freqs-peak),0.5)
 
 L4_inp_opm = np.fft.ifft2(opm_fft)
 L4_inp_opm *= np.abs(L4_inp_opm)**1.6/np.abs(L4_inp_opm)
-L4_inp_opm *= os_mult * 0.16 / np.median(np.abs(L4_inp_opm)) # normalize median to data
+L4_inp_opm *= 0.1 / np.median(np.abs(L4_inp_opm)) # normalize median to data
 L4_inp_opm *= np.clip(np.abs(L4_inp_opm),0,0.8) / np.abs(L4_inp_opm) # clip max os to 0.8
 if args['map'] == 'sandp':
     L4_inp_opm = L4_inp_opm.flatten()
@@ -309,6 +305,35 @@ start = time.process_time()
 L4_ff_inps,L4_rf_rates = get_sheet_rf_resps(N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
 L4_net_inps,L4_rates = get_sheet_resps(params,N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
 
+def compute_rec_input(params,rates):
+    Jee,Jei,Jie,Jii = 10**params[:4]
+    Jei *= -1
+    Jii *= -1
+
+    s_b = np.sqrt(sig2)*params[6]*sb_mult
+
+    kern_n = np.eye(N**2)
+
+    kern_b = np.exp(-(dss/s_b)**2)
+    norm = kern_b.sum(axis=1).mean(axis=0)
+    kern_b /= norm
+    
+    b_frac_e = params[4]
+    b_frac_i = params[5]
+    
+    ye = rates[0]
+    yi = rates[1]
+    
+    broad_e = kern_b@(b_frac_e*Jee@ye + b_frac_i*Jei@yi)
+    broad_i = kern_b@(b_frac_e*Jie@ye + b_frac_i*Jii@yi)
+    
+    narrow_e = kern_n@(Jee@ye + Jei@yi)
+    narrow_i = kern_n@(Jie@ye + Jii@yi)
+    
+    return np.stack(broad_e,broad_i), np.stack(narrow_e,narrow_i), np.stack(broad_e+narrow_e,broad_i+narrow_i)
+
+L4_broad_inps, L4_narrow_inps, L4_rec_inps = compute_rec_input(params,L4_rates)
+
 print('Simulating rate dynamics took',time.process_time() - start,'s\n')
 
 if saverates:
@@ -341,13 +366,19 @@ def max_ori_one_hot(A,N,nori,nphs):
     return one_hot
 
 ff_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_ff_inps[0],N,n_ori,n_phs))
-ff_opm = af.calc_OPM(L4_ff_inps[0].mean(-1))
+ff_opm = af.calc_OPM(L4_ff_inps[0].mean(-1).reshape(N,N))
 ff_ppms = np.array([af.calc_OPM(L4_ff_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
-rec_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_net_inps[0]-L4_ff_inps[0],N,n_ori,n_phs))
-rec_opm = af.calc_OPM((L4_net_inps[0]-L4_ff_inps[0]).mean(-1))
-rec_ppms = np.array([af.calc_OPM((L4_net_inps-L4_ff_inps)[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
+rec_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_rec_inps[0],N,n_ori,n_phs))
+rec_opm = af.calc_OPM((L4_rec_inps[0]).mean(-1).reshape(N,N))
+rec_ppms = np.array([af.calc_OPM(L4_rec_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
+broad_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_broad_inps[0],N,n_ori,n_phs))
+broad_opm = af.calc_OPM((L4_broad_inps[0]).mean(-1).reshape(N,N))
+broad_ppms = np.array([af.calc_OPM(L4_broad_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
+narrow_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_narrow_inps[0],N,n_ori,n_phs))
+narrow_opm = af.calc_OPM((L4_narrow_inps[0]).mean(-1).reshape(N,N))
+narrow_ppms = np.array([af.calc_OPM(L4_narrow_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 net_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_net_inps[0],N,n_ori,n_phs))
-net_opm = af.calc_OPM(L4_net_inps[0].mean(-1))
+net_opm = af.calc_OPM(L4_net_inps[0].mean(-1).reshape(N,N))
 net_ppms = np.array([af.calc_OPM(L4_net_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 
 res_dict['L4_inp_opm'] = L4_inp_opm
@@ -369,6 +400,12 @@ res_dict['ff_ppms'] = ff_ppms
 res_dict['rec_opm'] = rec_opm
 res_dict['rec_opm_one_hot'] = rec_opm_one_hot
 res_dict['rec_ppms'] = rec_ppms
+res_dict['broad_opm'] = broad_opm
+res_dict['broad_opm_one_hot'] = broad_opm_one_hot
+res_dict['broad_ppms'] = broad_ppms
+res_dict['narrow_opm'] = narrow_opm
+res_dict['narrow_opm_one_hot'] = narrow_opm_one_hot
+res_dict['narrow_ppms'] = narrow_ppms
 res_dict['net_opm'] = net_opm
 res_dict['net_opm_one_hot'] = net_opm_one_hot
 res_dict['net_ppms'] = net_ppms
