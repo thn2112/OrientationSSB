@@ -81,7 +81,7 @@ for i in range(10):
     patts /= np.std(patts,axis=0,keepdims=True)
     
 gam_dist = gamma(a=1/(patt_cv**2),scale=patt_cv**2)
-patts = (gam_dist.ppf(norm.cdf(patts)) - 1)
+patts = gam_dist.ppf(norm.cdf(patts))
 
 freqs = np.fft.fftfreq(N,1/N)
 freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
