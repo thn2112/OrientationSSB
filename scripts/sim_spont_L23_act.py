@@ -21,7 +21,8 @@ parser.add_argument('--n_int', '-nt', help='number of integration steps between 
 parser.add_argument('--patt_cv', '-pcv', help='input coefficient of variation',type=float, default=0.65)
 parser.add_argument('--spat_freq', '-sf', help='input spatial frequency decay length',type=int, default=8)
 parser.add_argument('--inp_str', '-istr', help='mean of feedforward input',type=float, default=1.0)
-parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
+parser.add_argument('--inp_seed', '-is', help='seed for L4 model input',type=int, default=0)
+parser.add_argument('--rec_seed', '-rs', help='seed for recurrent connectivity',type=int, default=0)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
 args = vars(parser.parse_args())
 n_patt = int(args['n_patt'])
@@ -30,7 +31,8 @@ n_int= int(args['n_int'])
 patt_cv = args['patt_cv']
 spat_freq = args['spat_freq']
 inp_str = args['inp_str']
-seed = int(args['seed'])
+inp_seed = int(args['inp_seed'])
+rec_seed = int(args['rec_seed'])
 saverates = args['saverates']
 
 N = 60
@@ -47,7 +49,7 @@ res_dir = res_dir + 'L23_sel/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
-res_file = res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(patt_cv,spat_freq,inp_str,seed)
+res_file = res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_inp_seed={:d}_rec_seed={:d}.pkl'.format(patt_cv,spat_freq,inp_str,inp_seed,rec_seed)
 
 res_dict = {}
 
@@ -64,7 +66,7 @@ nbins = 50
 idxs = np.digitize(dss,np.linspace(0,np.max(dss),nbins+1))
 
 npatt = n_patt
-patts_fft = np.fft.fft2(np.random.default_rng(seed).normal(size=(npatt,N,N)))
+patts_fft = np.fft.fft2(np.random.default_rng(inp_seed).normal(size=(npatt,N,N)))
 patts_fft[:,0,0] = 0 # remove DC component
 freqs = np.fft.fftfreq(N,1/N)
 freqs = np.sqrt(freqs[:,None]**2 + freqs[None,:]**2)
@@ -129,7 +131,7 @@ def integrate_sheet(xea0,xen0,xeg0,xia0,xin0,xig0,inp,Jee,Jei,Jie,Jii,kern_e,ker
     xin = xin0.copy()
     xig = xig0.copy()
     
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(rec_seed)
     gam_dist = gamma(a=1/(het_lev**2),scale=het_lev**2)
     
     Wee = Jee*kern_e.reshape(N**2,N**2)*gam_dist.ppf(norm_dist.cdf(gen_noise(rng)))

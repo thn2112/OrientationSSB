@@ -98,44 +98,45 @@ def runjobs():
         for pcv in pcvs:
             for sf in sfs:
                 for inp_str in iss:
-                    for seed in seeds:
-                        #--------------------------------------------------------------------------
-                        # Make SBTACH
-                        inpath = currwd + "/sim_spont_L23_act.py"
-                        c1 = "{:s} -s {:d} -npt {:d} -pcv {:.2f} -sf {:d} -is {:.1f} -r 1".format(
-                                inpath,seed,n_patt,pcv,sf,inp_str)
-                        res_dir = './../results/L23_sel/'
-                        if os.path.isfile(res_dir+'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(pcv,sf,inp_str,seed)):
-                            continue
+                    for inp_seed in seeds:
+                        for rec_seed in seeds:
+                            #--------------------------------------------------------------------------
+                            # Make SBTACH
+                            inpath = currwd + "/sim_spont_L23_act.py"
+                            c1 = "{:s} -is {:d} -rs {:d} -npt {:d} -pcv {:.2f} -sf {:d} -istr {:.1f} -r 1".format(
+                                    inpath,inp_seed,rec_seed,n_patt,pcv,sf,inp_str)
+                            res_dir = './../results/L23_sel/'
+                            if os.path.isfile(res_dir+'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_inp_seed={:d}_rec_seed={:d}.pkl'.format(pcv,sf,inp_str,inp_seed,rec_seed)):
+                                continue
 
-                        jobname="{:s}_cv={:.2f}_sf={:d}_is={:.1f}_seed={:d}".format(
-                            'sim_spont_L23_act',pcv,sf,inp_str,seed)
+                            jobname="{:s}_cv={:.2f}_sf={:d}_is={:.1f}_inp_seed={:d}_rec_seed={:d}".format(
+                                'sim_spont_L23_act',pcv,sf,inp_str,inp_seed,rec_seed)
 
-                        if not args2.test:
-                            jobnameDir=os.path.join(temp_dir, jobname)
-                            text_file=open(jobnameDir, "w");
-                            os. system("chmod u+x "+ jobnameDir)
-                            text_file.write("#!/bin/sh \n")
-                            if cluster=='haba' or cluster=='moto' or cluster=='burg':
-                                text_file.write("#SBATCH --account=theory \n")
-                            text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                            text_file.write("#SBATCH -t 0-5:59  \n")
-                            text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
-                            # text_file.write("#SBATCH --gres=gpu\n")
-                            text_file.write("#SBATCH -c 1 \n")
-                            text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
-                            text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
-                            text_file.write("python  -W ignore " + c1+" \n")
-                            text_file.write("echo $PATH  \n")
-                            text_file.write("exit 0  \n")
-                            text_file.close()
+                            if not args2.test:
+                                jobnameDir=os.path.join(temp_dir, jobname)
+                                text_file=open(jobnameDir, "w");
+                                os.system("chmod u+x "+ jobnameDir)
+                                text_file.write("#!/bin/sh \n")
+                                if cluster=='haba' or cluster=='moto' or cluster=='burg':
+                                    text_file.write("#SBATCH --account=theory \n")
+                                text_file.write("#SBATCH --job-name="+jobname+ "\n")
+                                text_file.write("#SBATCH -t 0-5:59  \n")
+                                text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
+                                # text_file.write("#SBATCH --gres=gpu\n")
+                                text_file.write("#SBATCH -c 1 \n")
+                                text_file.write("#SBATCH -o "+ ofilesdir + "/%x.%j.o # STDOUT \n")
+                                text_file.write("#SBATCH -e "+ ofilesdir +"/%x.%j.e # STDERR \n")
+                                text_file.write("python  -W ignore " + c1+" \n")
+                                text_file.write("echo $PATH  \n")
+                                text_file.write("exit 0  \n")
+                                text_file.close()
 
-                            if cluster=='axon':
-                                os.system("sbatch -p burst " +jobnameDir);
+                                if cluster=='axon':
+                                    os.system("sbatch -p burst " +jobnameDir);
+                                else:
+                                    os.system("sbatch " +jobnameDir);
                             else:
-                                os.system("sbatch " +jobnameDir);
-                        else:
-                            print (c1)
+                                print (c1)
 
 
 if __name__ == "__main__":
