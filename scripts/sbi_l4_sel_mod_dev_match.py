@@ -1,4 +1,6 @@
+import sys
 import os
+from pathlib import Path
 import pickle
 import time
 import argparse
@@ -35,6 +37,8 @@ if not os.path.exists(res_dir):
     os.makedirs(res_dir)
 
 res_file = res_dir + 'bayes_iter={:d}_job={:d}.pkl'.format(bayes_iter, job_id)
+if Path(res_file).is_file():
+    sys.exit()
 
 # create prior distribution
 if bayes_iter <= 2:
@@ -48,7 +52,7 @@ if bayes_iter <= 2:
     theta[:,6] = log2(Ji_broad / Ji_narrow)
     '''
     with open(f'./../notebooks/l4_dev_prior_samples_{bayes_iter}.pkl','rb') as handle:
-        samples = pickle.load(handle)[:,:6]
+        samples = pickle.load(handle)[:,:7]
 else:
     with open(f'./../notebooks/l4_dev_match_samples_{bayes_iter:d}.pkl','rb') as handle:
         samples = pickle.load(handle)
@@ -348,12 +352,16 @@ def sheet_simulator(theta):
     out[:,11] = torch.tensor(var_t,dtype=theta.dtype).to(theta.device)
     out[:,12] = torch.tensor(var_r,dtype=theta.dtype).to(theta.device)
     
-    valid_idx = torch.all(torch.tensor(resps) < 5e4,axis=(1,2,3,4)) & (Jii < 0)
-    
-    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None])
+    valid_idx = torch.all(torch.all(torch.all(torch.all(torch.tensor(resps) < 5e4,axis=1),axis=1),axis=1),axis=1) & (Jii < 0)
+
+    return torch.where(valid_idx[:,None],out,torch.tensor([torch.nan])[:,None]), raps, resp_opm
+
+rng = np.random.default_rng(job_id)
 
 thetas = torch.zeros((0,7))
 xs = torch.zeros((0,13))
+rapss = np.zeros((0,int(np.round(np.ceil(N//2*np.sqrt(2))))))
+opms = np.zeros((0,N**2))
 
 while thetas.shape[0] < num_samp:
     this_samps = num_samp#min(30, num_samp - thetas.shape[0])
@@ -362,10 +370,12 @@ while thetas.shape[0] < num_samp:
     # sample from prior
     theta = torch.tensor(rng.choice(samples, size=this_samps, replace=False))
     # simulate sheet
-    x = sheet_simulator(theta)
+    x,raps,opm = sheet_simulator(theta)
 
     thetas = torch.cat([thetas,theta],dim=0)
     xs = torch.cat([xs,x],dim=0)
+    rapss = np.concatenate((rapss,raps),axis=0)
+    opms = np.concatenate((opms,opm),axis=0)
 
     print(f'Simulating samples took',time.process_time() - start,'s\n')
 
@@ -374,4 +384,6 @@ while thetas.shape[0] < num_samp:
         pickle.dump({
             'theta': thetas,
             'x': xs,
+            'raps': raps,
+            'opms': opms,
         }, handle)
