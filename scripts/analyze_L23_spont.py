@@ -61,8 +61,14 @@ dims = np.ones(num_seeds)*np.nan
 
 for seed_idx in tqdm(range(num_seeds)):
     try:
-        with open(res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(patt_cv,spat_freq,inp_str,seed_idx),'rb') as handle:
-            file_dict = pickle.load(handle)
+        try:
+            with open(res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_seed={:d}.pkl'.format(
+                    patt_cv,spat_freq,inp_str,seed_idx),'rb') as handle:
+                file_dict = pickle.load(handle)
+        except:
+            with open(res_dir + 'spont_cv={:.2f}_spat_freq={:d}_inp_str={:.1f}_inp_seed={:d}_rec_seed={:d}.pkl'.format(
+                    patt_cv,spat_freq,inp_str,seed_idx,seed_idx),'rb') as handle:
+                file_dict = pickle.load(handle)
     except:
         continue
     
