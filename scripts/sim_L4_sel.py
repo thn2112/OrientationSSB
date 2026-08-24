@@ -68,7 +68,14 @@ if args['map'] is None or args['map'] == 'low':
     opm_fft *= np.exp(-freqs/decay)
 elif 'dev' in args['map']:
     sb_mult = 1
-    opm_fft *= np.exp(-freqs/2) + 0.5*np.exp(-freqs/50)#0.1 + np.exp(-freqs/decay)
+    if args['map'] == 'dev':
+        opm_fft *= np.exp(-freqs/2) + 0.5*np.exp(-freqs/50)#0.1 + np.exp(-freqs/decay)
+    elif args['map'] == 'dev_low':
+        opm_fft *= np.exp(-0.7*freqs/2) + 0.5*np.exp(-0.7*freqs/50)#0.1 + np.exp(-freqs/decay)
+    elif args['map'] == 'dev_high':
+        opm_fft *= np.exp(-1.3*freqs/2) + 0.5*np.exp(-1.3*freqs/50)#0.1 + np.exp(-freqs/decay)
+    else:
+        raise ValueError(f"Map not recognized, expected 'dev', 'dev_low', or 'dev_high'. Got {args['map']}.")
 elif 'band' in args['map']:
     if args['map'] == 'band':
         peak = 6
