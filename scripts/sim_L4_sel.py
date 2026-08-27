@@ -388,6 +388,10 @@ net_opm_one_hot = af.calc_OPM(max_ori_one_hot(L4_net_inps[0],N,n_ori,n_phs))
 net_opm = af.calc_OPM(L4_net_inps[0].mean(-1)).reshape(N,N)
 net_ppms = np.array([af.calc_OPM(L4_net_inps[0,:,i,:].reshape(N,N,n_phs)) for i in range(n_ori)])
 
+ff_f0,ff_f1,_ = af.calc_dc_ac_comp(L4_ff_inps[0])
+rec_f0,rec_f1,_ = af.calc_dc_ac_comp(L4_rec_inps[0])
+net_f0,net_f1,_ = af.calc_dc_ac_comp(L4_net_inps[0])
+
 res_dict['L4_inp_opm'] = L4_inp_opm
 res_dict['L4_inp_ppms'] = inp_ppms
 res_dict['inp_r0'] = inp_r0
@@ -416,6 +420,13 @@ res_dict['narrow_ppms'] = narrow_ppms
 res_dict['net_opm'] = net_opm
 res_dict['net_opm_one_hot'] = net_opm_one_hot
 res_dict['net_ppms'] = net_ppms
+
+res_dict['ff_f0'] = ff_f0
+res_dict['ff_f1'] = ff_f1
+res_dict['rec_f0'] = rec_f0
+res_dict['rec_f1'] = rec_f1
+res_dict['net_f0'] = net_f0
+res_dict['net_f1'] = net_f1
 
 with open(res_file, 'wb') as handle:
     pickle.dump(res_dict,handle)
