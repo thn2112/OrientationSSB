@@ -68,14 +68,12 @@ if args['map'] is None or args['map'] == 'low':
     opm_fft *= np.exp(-freqs/decay)
 elif 'dev' in args['map']:
     sb_mult = 1
-    if args['map'] == 'dev':
-        opm_fft *= np.exp(-freqs/2) + 0.5*np.exp(-freqs/50)#0.1 + np.exp(-freqs/decay)
-    elif args['map'] == 'dev_low':
+    if args['map'] == 'dev_low':
         opm_fft *= np.exp(-0.7*freqs/2) + 0.5*np.exp(-0.7*freqs/50)#0.1 + np.exp(-freqs/decay)
     elif args['map'] == 'dev_high':
         opm_fft *= np.exp(-1.3*freqs/2) + 0.5*np.exp(-1.3*freqs/50)#0.1 + np.exp(-freqs/decay)
     else:
-        raise ValueError(f"Map not recognized, expected 'dev', 'dev_low', or 'dev_high'. Got {args['map']}.")
+        opm_fft *= np.exp(-freqs/2) + 0.5*np.exp(-freqs/50)#0.1 + np.exp(-freqs/decay)
 elif 'band' in args['map']:
     if args['map'] == 'band':
         peak = 6
@@ -90,7 +88,7 @@ L4_inp_opm = np.fft.ifft2(opm_fft)
 L4_inp_opm *= np.abs(L4_inp_opm)**1.6/np.abs(L4_inp_opm)
 L4_inp_opm *= 0.12 / np.median(np.abs(L4_inp_opm)) # normalize median to data
 L4_inp_opm *= np.clip(np.abs(L4_inp_opm),0,0.8) / np.abs(L4_inp_opm) # clip max os to 0.8
-if args['map'] == 'sandp':
+if 'sandp' in args['map']:
     L4_inp_opm = L4_inp_opm.flatten()
     rng.shuffle(L4_inp_opm)
     L4_inp_opm = L4_inp_opm.reshape(N,N)
@@ -119,13 +117,13 @@ gam_map = gam_os_itp(np.abs(L4_inp_opm))
 # compute rf scatter and ON/OFF bias maps
 sig2 = 0.00095
 
-rf_sct_scale = 0.8
-pol_scale = np.array([10,5,5])
+rf_sct_scale = 0#0.8
+pol_scale = np.array([5,7,4])
 L_mm = N/11
 mag_fact = 0.02
 # L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
-L_deg = 5.9 / grate_freq
+L_deg = 2 / grate_freq#5.9 / grate_freq
 
 sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass',seed=seed)
 

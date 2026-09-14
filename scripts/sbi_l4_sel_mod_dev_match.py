@@ -42,6 +42,7 @@ if Path(res_file).is_file():
 
 # create prior distribution
 if bayes_iter <= 2:
+    BEST_PREV_ITERS = [6,8,10]
     '''
     theta[:,0] = det(J)/(|Jei| * |Jie|) = 1 - (|Jee| * |Jii|) / (|Jei| * |Jie|)
     theta[:,1] = (Ω_I - Ω_E)/(|Jei| + |Jie|) = 1 - (|Jee| + |Jii|) / (|Jei| + |Jie|)
@@ -51,10 +52,10 @@ if bayes_iter <= 2:
     theta[:,5] = log2(Je_broad / Je_narrow)
     theta[:,6] = log2(Ji_broad / Ji_narrow)
     '''
-    with open(f'./../notebooks/l4_dev_prior_samples_{bayes_iter}.pkl','rb') as handle:
-        samples = pickle.load(handle)[:,:7]
+    with open(f'./../notebooks/l4_dev_match_samples_{BEST_PREV_ITERS[bayes_iter]:d}.pkl','rb') as handle:
+        samples = pickle.load(handle)
 else:
-    with open(f'./../notebooks/l4_dev_match_samples_{bayes_iter:d}.pkl','rb') as handle:
+    with open(f'./../notebooks/l4_dev_match_samples_new_{bayes_iter:d}.pkl','rb') as handle:
         samples = pickle.load(handle)
 
 # create L4 orientation map
@@ -93,12 +94,12 @@ gam_map = gam_os_itp(np.abs(omap))
 # compute rf scatter and ON/OFF bias maps
 sig2 = 0.00095
 
-rf_sct_scale = 0.8
-pol_scale = np.array([10,5,5])
+rf_sct_scale = 0#0.8
+pol_scale = np.array([5,7,4])
 L_mm = N/11
 mag_fact = 0.02
 # L_deg = L_mm / np.sqrt(mag_fact)
-L_deg = 5.9/0.06
+L_deg = 2/0.06#5.9/0.06
 grate_freq = 0.06
 
 sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass')
