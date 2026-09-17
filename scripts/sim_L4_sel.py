@@ -91,7 +91,7 @@ L4_inp_opm *= np.clip(np.abs(L4_inp_opm),0,0.8) / np.abs(L4_inp_opm) # clip max 
 if 'sandp' in args['map']:
     L4_inp_opm = L4_inp_opm.flatten()
     rng.shuffle(L4_inp_opm)
-    L4_inp_opm = L4_inp_opm.reshape(N,N)
+    L4_inp_opm = L4_inp_opm.reshape(N,N).
 
 # compute elongation of each rf
 oris = np.linspace(0,np.pi,100,endpoint=False) - np.pi/2
