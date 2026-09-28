@@ -94,15 +94,24 @@ if not os.path.exists(res_dir):
 # log10JEI = -1.1950144
 # log10JIE = -0.9078631
 # log10JII = -1.4561069
+# sig2 = 0.00095
+# s_n = 0.05 * np.sqrt(sig2)
+# s_b = 2.1013374 * np.sqrt(sig2)
+# broad_frac_e = 1.2238963
+# broad_frac_i = 1.3242073
+# log10JEE = -0.57088965
+# log10JEI = -1.3061106
+# log10JIE = -0.5617326
+# log10JII = -1.3919113
 sig2 = 0.00095
 s_n = 0.05 * np.sqrt(sig2)
-s_b = 2.1013374 * np.sqrt(sig2)
-broad_frac_e = 1.2238963
-broad_frac_i = 1.3242073
-log10JEE = -0.57088965
-log10JEI = -1.3061106
-log10JIE = -0.5617326
-log10JII = -1.3919113
+s_b = 2.3506601 * np.sqrt(sig2)
+broad_frac_e = 1.8266888
+broad_frac_i = 1.7200509
+log10JEE = -1.2428932
+log10JEI = -2.1299024
+log10JIE = -1.1701188
+log10JII = -2.2549360
 
 w_prm_dict = {
     's_n':          s_n,
