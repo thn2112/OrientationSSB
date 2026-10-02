@@ -90,23 +90,21 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['','band']#,
+    maps = ['dev','dev_sandp']#'band']#,
             #'band_4','band_8','band_12']
     inp_seeds = range(20)
     rec_seeds = range(5)
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
-            if map_type == '':
-                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),#(1,0,0,0,0),
-                                                   #(0,1,0,0,0),#(1,1,0,0,0),
-                                                   #(0,0,1,0,0),(0,0,0,1,0),
-                                                   (0,0,0,0,1),#(1,0,0,0,1),
-                                                   (0,-1,0,0,1),]#(1,-1,0,0,1),
-                                                   #(0,0,1,0,1),(0,0,0,1,1)]
+            if map_type in ('dev','dev_sandp'):
+                static_ffl4_mr_warbs = [(0,1,None,0)]
+                static_ffl4_mr_warbs = [(0,1,None,2)]
+                static_ffl4_mr_warbs = [(0,1,1.4,0)]
+                static_ffl4_mr_warbs = [(0,1,1.4,2)]
             else:
-                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
-            for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
+                static_ffl4_mr_warbs = [(0,0,0,0)]
+            for (static,ffl4,mr,warb) in static_ffl4_mr_warbs:
                 for inp_seed in inp_seeds:
                     for rec_seed in rec_seeds:
                         #--------------------------------------------------------------------------
@@ -121,26 +119,26 @@ def runjobs():
                         if map_type != '':
                             c1 = c1 + " -m {:s}".format(map_type)
                             res_dir = res_dir + '{:s}_'.format(map_type)
-                        if phase == 1:
-                            c1 = c1 + " -ap 1"
-                            res_dir = res_dir + 'phase_'
-                        elif phase == -1:
-                            c1 = c1 + " -rp 1"
-                            res_dir = res_dir + 'rphase_'
-                        if orisel == 1:
-                            c1 = c1 + " -aos 1"
-                            res_dir = res_dir + 'orisel_'
-                        if sandp == 1:
-                            c1 = c1 + " -asp 1"
-                            res_dir = res_dir + 'sandp_'
+                        # if orisel == 1:
+                        #     c1 = c1 + " -aos 1"
+                        #     res_dir = res_dir + 'orisel_'
+                        # if sandp == 1:
+                        #     c1 = c1 + " -asp 1"
+                        #     res_dir = res_dir + 'sandp_'
                         if ffl4 == 1:
                             c1 = c1 + " -aff 1"
                             res_dir = res_dir + 'ffl4_'
+                        if mr is not None:
+                            c1 = c1 + f" -mr {mr:.1f}"
+                            res_dir = res_dir + f'mr={mr:.1f}_'
+                        if warb > 0:
+                            c1 = c1 + f" -w {warb:d}"
+                            res_dir = res_dir + f'w_arb={warb:d}_'
                         if os.path.isfile(res_dir+'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)):
                             continue
 
-                        jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}_inp_seed={:d}_rec_seed={:d}".format(
-                            'sim_noisy_L23_sel',map_type,static,phase,orisel,sandp,ffl4,inp_seed,rec_seed)
+                        jobname="{:s}_map={:s}_static={:d}_ffl4={:d}_mr={:.1f}_warb={:d}_inp_seed={:d}_rec_seed={:d}".format(
+                            'sim_noisy_L23_sel',map_type,static,ffl4,mr,warb,inp_seed,rec_seed)
 
                         if not args2.test:
                             jobnameDir=os.path.join(temp_dir, jobname)

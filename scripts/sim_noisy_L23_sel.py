@@ -26,11 +26,11 @@ parser.add_argument('--n_int', '-nt', help='number of integration steps between 
 parser.add_argument('--inp_seed', '-is', help='seed for L4 model input',type=int, default=0)
 parser.add_argument('--rec_seed', '-rs', help='seed for recurrent connectivity',type=int, default=0)
 parser.add_argument('--num_noise_seeds', '-ns', help='number of seeds for input noise',type=int, default=5)
-parser.add_argument('--add_phase', '-ap', help='add phase selectivity to L4 inputs or not',type=bool, default=False)
-parser.add_argument('--remove_phase', '-rp', help='remove phase selectivity from L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
+parser.add_argument('--mod_rat', '-mr', help='',type=float, default=None)
+parser.add_argument('--w_arbor', '-w', help='width of L4 to L2/3 arbor in pixels',type=int, default=0)
 parser.add_argument('--map', '-m', help='whether to switch to a different L4 map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
@@ -42,11 +42,11 @@ n_int= int(args['n_int'])
 inp_seed = int(args['inp_seed'])
 rec_seed = int(args['rec_seed'])
 num_noise_seeds = int(args['num_noise_seeds'])
-add_phase = args['add_phase']
-remove_phase = args['remove_phase']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
+w_arbor = args['w_arbor']
+mod_rat = args['mod_rat']
 static = args['static']
 saverates = args['saverates']
 
@@ -100,13 +100,6 @@ else:
     L4_rate_opm = L4_res_dict['L4_rate_opm'][0]
 
 L4_rates /= np.nanmean(L4_rates,axis=(-2,-1),keepdims=True)
-if add_phase:
-    _,_,phs = af.calc_dc_ac_comp(L4_rates)
-    L4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_phs,endpoint=False)[None,None,:]-phs[:,:,None]))
-    L4_phase_rates *= np.nanmean(L4_rates,axis=(-1),keepdims=True) / np.nanmean(L4_phase_rates,axis=(-1),keepdims=True)
-    L4_rates = L4_phase_rates
-elif remove_phase:
-    L4_rates = np.nanmean(L4_rates,axis=(-1),keepdims=True) * np.ones_like(L4_rates)
 if add_orisel:
     _,_,doub_po = af.calc_dc_ac_comp(L4_rates.mean(-1))
     L4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None]))
@@ -116,6 +109,24 @@ if add_orisel:
 if add_sandp:
     rng = np.random.default_rng(inp_seed)
     L4_rates = rng.permutation(L4_rates)
+    L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
+if mod_rat is not None:
+    phase_func = af.get_phase_func(mod_rat)
+    _,_,phs = af.calc_dc_ac_comp(L4_rates)
+    L4_phase_rates = phase_func(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,:]-phs[:,:,None])
+    L4_phase_rates *= np.nanmean(L4_rates,axis=(-1),keepdims=True) \
+        / np.nanmean(L4_phase_rates,axis=(-1),keepdims=True)
+    L4_rates = L4_phase_rates
+if w_arbor > 0:
+    x,y = np.mgrid[:N,:N]
+    x[x > N//2] = N - x[x > N//2]
+    y[y > N//2] = N - y[y > N//2]
+    s2 = (x**2 + y**2)
+
+    L4_rates_fft = np.fft.fft2(L4_rates.transpose(1,2,0).reshape(-1,N,N))
+    L4_rates = np.fft.ifft2(L4_rates_fft * np.exp(-0.5*s2*(w_arbor/N)**2)).real
+    L4_rates = L4_rates.reshape(8,8,N**2).transpose(2,0,1)
+    L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
 
 # Compute distance matrix for connectivity kernel
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)
@@ -150,7 +161,7 @@ L4_rates_itp = CubicSpline(np.arange(0,n_phs+1) * 1/(3*n_phs),
                            np.concatenate((L4_rates,L4_rates[:,:,0:1]),axis=-1),
                            axis=-1,bc_type='periodic')
 
-def gen_corr_inps(rng,T=3,dt=0.05/(3*n_phs),t_corr=0.02,noise_cv=5):
+def gen_corr_inps(rng,T=3,dt=0.05/(3*n_phs),t_corr=0.02,noise_cv=3):
     npatt = int(np.round(T/dt)) + 1
 
     spat_freq = 8
