@@ -22,11 +22,11 @@ parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, de
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--map', '-m', help='type of map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
-parser.add_argument('--add_phase', '-ap', help='add phase to L4 inputs or not',type=bool, default=False)
-parser.add_argument('--remove_phase', '-rp', help='remove phase from L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
 parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
+parser.add_argument('--mod_rat', '-mr', help='',type=float, default=None)
+parser.add_argument('--w_arbor', '-w', help='width of L4 to L2/3 arbor in pixels',type=int, default=0)
 parser.add_argument('--num_inp_seeds', '-inps', help='number of seeds to average over',type=int, default=0)
 parser.add_argument('--num_rec_seeds', '-recs', help='number of seeds to average over',type=int, default=0)
 parser.add_argument('--num_noise_seeds', '-noises', help='number of seeds to average over',type=int, default=0)
@@ -37,11 +37,11 @@ n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
 n_int= int(args['n_int'])
 static = args['static']
-add_phase = args['add_phase']
-remove_phase = args['remove_phase']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
+w_arbor = args['w_arbor']
+mod_rat = args['mod_rat']
 num_inp_seeds = int(args['num_inp_seeds'])
 num_rec_seeds = int(args['num_rec_seeds'])
 num_noise_seeds = int(args['num_noise_seeds'])
@@ -69,11 +69,6 @@ if args['map'] is not None:
     res_dir = res_dir + '{:s}_'.format(args['map'])
     l4_dir = l4_dir + '{:s}_'.format(args['map'])
     
-if add_phase:
-    res_dir = res_dir + 'phase_'
-elif remove_phase:
-    res_dir = res_dir + 'rphase_'
-    
 if add_orisel:
     res_dir = res_dir + 'orisel_'
     
@@ -82,6 +77,13 @@ if add_sandp:
     
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
+
+if mod_rat is not None:
+    mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
+    res_dir = res_dir + f'mr={mod_rat:.1f}_'
+
+if w_arbor > 0:
+    res_dir = res_dir + f'w_arb={w_arbor:d}_'
 
 res_dict = {}
 rng = np.random.default_rng(0)
@@ -127,14 +129,6 @@ for inp_seed_idx in range(num_inp_seeds):
     else:
         l4_rates = l4_dict['L4_rates']
     l4_rates /= np.nanmean(l4_rates,axis=(-2,-1),keepdims=True)
-    if add_phase:
-        _,_,phs = af.calc_dc_ac_comp(l4_rates)
-        l4_phase_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,None,:]-phs[:,:,:,None]))
-        l4_phase_rates *= np.nanmean(l4_rates,axis=(-1),keepdims=True) \
-            / np.nanmean(l4_phase_rates,axis=(-1),keepdims=True)
-        l4_rates = l4_phase_rates
-    elif remove_phase:
-        l4_rates = np.nanmean(l4_rates,axis=(-1),keepdims=True) * np.ones_like(l4_rates)
     if add_orisel:
         _,_,doub_po = af.calc_dc_ac_comp(l4_rates.mean(-1))
         l4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,:]-doub_po[:,:,None]))
@@ -144,6 +138,22 @@ for inp_seed_idx in range(num_inp_seeds):
     if add_sandp:
         rng = np.random.default_rng(inp_seed_idx)
         l4_rates[0] = rng.permutation(l4_rates[0])
+    if mod_rat is not None:
+        phase_func = af.get_phase_func(mod_rat)
+        _,_,phs = af.calc_dc_ac_comp(l4_rates)
+        l4_phase_rates = phase_func(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,None,:]-phs[:,:,:,None])
+        l4_phase_rates *= np.nanmean(l4_rates,axis=(-1),keepdims=True) \
+            / np.nanmean(l4_phase_rates,axis=(-1),keepdims=True)
+        l4_rates = l4_phase_rates
+    if w_arbor > 0:
+        x,y = np.mgrid[:N,:N]
+        x[x > N//2] = N - x[x > N//2]
+        y[y > N//2] = N - y[y > N//2]
+        s2 = (x**2 + y**2)
+
+        l4_rates_fft = np.fft.fft2(l4_rates.transpose(0,2,3,1).reshape(-1,N,N))
+        l4_rates = np.fft.ifft2(l4_rates_fft * np.exp(-0.5*s2*(w_arbor/N)**2)).real
+        l4_rates = l4_rates.reshape(2,8,8,N**2).transpose(0,3,1,2)
         
     l4_rates = np.tile(l4_rates.reshape((1,1,2,N**2,n_ori,n_phs)),(num_noise_seeds,3,1,1,1,1))
     

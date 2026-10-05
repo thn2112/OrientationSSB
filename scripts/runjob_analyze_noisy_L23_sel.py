@@ -91,23 +91,22 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['','band']#,'band_4','band_8','band_12','band_16']
+    maps = ['dev','dev_sandp']#'band']#,
+        #,'band_4','band_8','band_12','band_16']
     num_inp_seeds = 20
     num_rec_seeds = 5
     num_noise_seeds = 5
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
-            if map_type == '':
-                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0),#(1,0,0,0,0),
-                                                   #(0,1,0,0,0),#(1,1,0,0,0),
-                                                   #(0,0,1,0,0),(0,0,0,1,0),
-                                                   (0,0,0,0,1),#(1,0,0,0,1),
-                                                   (0,-1,0,0,1),]#(1,-1,0,0,1),
-                                                   #(0,0,1,0,1),(0,0,0,1,1)]
+            if map_type in ('dev','dev_sandp'):
+                static_ffl4_mr_warbs = [(0,1,None,0)]
+                static_ffl4_mr_warbs = [(0,1,None,2)]
+                static_ffl4_mr_warbs = [(0,1,1.4,0)]
+                static_ffl4_mr_warbs = [(0,1,1.4,2)]
             else:
-                static_phase_orisel_sandp_ffl4s = [(0,0,0,0,0)]
-            for (static,phase,orisel,sandp,ffl4) in static_phase_orisel_sandp_ffl4s:
+                static_ffl4_mr_warbs = [(0,0,0,0)]
+            for (static,ffl4,mr,warb) in static_ffl4_mr_warbs:
                 #--------------------------------------------------------------------------
                 # Make SBTACH
                 inpath = currwd + "/analyze_noisy_L23_sel.py"
@@ -117,16 +116,16 @@ def runjobs():
                     c1 = c1 + " -st 1"
                 if map_type != '':
                     c1 = c1 + " -m {:s}".format(map_type)
-                if phase == 1:
-                    c1 = c1 + " -ap 1"
-                elif phase == -1:
-                    c1 = c1 + " -rp 1"
-                if orisel == 1:
-                    c1 = c1 + " -aos 1"
-                if sandp == 1:
-                    c1 = c1 + " -asp 1"
+                # if phase == 1:
+                #     c1 = c1 + " -ap 1"
+                # elif phase == -1:
+                #     c1 = c1 + " -rp 1"
                 if ffl4 == 1:
                     c1 = c1 + " -aff 1"
+                if mr is not None:
+                    c1 = c1 + f" -mr {mr:.1f}"
+                if warb > 0:
+                    c1 = c1 + f" -w {warb:d}"
 
                 jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}".format(
                     'analyze_noisy_L23_sel',map_type,static,phase,orisel,sandp,ffl4)
