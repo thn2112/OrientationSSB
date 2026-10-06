@@ -70,16 +70,17 @@ if static:
     res_dir = res_dir + 'static_'
 if args['map'] is not None:
     res_dir = res_dir + args['map'] + '_'
-if add_phase:
-    res_dir = res_dir + 'phase_'
-if remove_phase:
-    res_dir = res_dir + 'rphase_'
 if add_orisel:
     res_dir = res_dir + 'orisel_'
 if add_sandp:
     res_dir = res_dir + 'sandp_'
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
+if mod_rat is not None:
+    mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
+    res_dir = res_dir + f'mr={mod_rat:.1f}_'
+if w_arbor > 0:
+    res_dir = res_dir + f'w_arb={w_arbor:d}_'
 res_file = res_dir + 'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)
 
 res_dict = {}

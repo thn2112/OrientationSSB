@@ -127,8 +127,8 @@ def runjobs():
                 if warb > 0:
                     c1 = c1 + f" -w {warb:d}"
 
-                jobname="{:s}_map={:s}_static={:d}_phase={:d}_orisel={:d}_sandp={:d}_ffl4={:d}".format(
-                    'analyze_noisy_L23_sel',map_type,static,phase,orisel,sandp,ffl4)
+                jobname="{:s}_map={:s}_static={:d}_ffl4={:d}_mr={:.1f}_warb={:d}".format(
+                    'analyze_noisy_L23_sel',map_type,static,ffl4,mr,warb)
                 
                 if not args2.test:
                     jobnameDir=os.path.join(temp_dir, jobname)
