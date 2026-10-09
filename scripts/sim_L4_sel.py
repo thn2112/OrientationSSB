@@ -117,13 +117,13 @@ gam_map = gam_os_itp(np.abs(L4_inp_opm))
 # compute rf scatter and ON/OFF bias maps
 sig2 = 0.00095
 
-rf_sct_scale = 0#0.8
+rf_sct_scale = 0.4#0.8
 pol_scale = np.array([5,7,4])
 L_mm = N/11
 mag_fact = 0.02
 # L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
-L_deg = 2 / grate_freq#5.9 / grate_freq
+L_deg = 3 / grate_freq#5.9 / grate_freq
 
 sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass',seed=seed)
 
