@@ -17,11 +17,12 @@ import analyze_func as af
 import map_func as mf
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
-parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
+parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=8)
+parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=8)
 parser.add_argument('--n_int', '-nt', help='number of integration steps between phases',type=int, default=4)
 parser.add_argument('--map', '-m', help='type of map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
+parser.add_argument('--ori_sel', '-os', help='',type=float, default=None)
 parser.add_argument('--num_seeds', '-s', help='number of seeds to average over',type=int, default=0)
 parser.add_argument('--num_samps', '-sa', help='number of samples from each seed to save',type=int, default=100)
 args = vars(parser.parse_args())
@@ -30,6 +31,7 @@ n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
 n_int= int(args['n_int'])
 static = args['static']
+ori_sel = args['ori_sel']
 num_seeds = int(args['num_seeds'])
 num_samps = int(args['num_samps'])
 
@@ -49,6 +51,12 @@ if static:
 
 if args['map'] is not None:
     res_dir = res_dir + '{:s}_'.format(args['map'])
+
+if ori_sel is not None:
+    ori_sel = np.clip(ori_sel, 0, 0.8).item()
+    res_dir = res_dir + f'os={ori_sel:.2f}_'
+else:
+    ori_sel = 0.12
 
 res_dict = {}
 rng = np.random.default_rng(0)
