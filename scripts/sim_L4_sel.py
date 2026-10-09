@@ -21,15 +21,19 @@ parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, de
 parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=8)
 parser.add_argument('--map', '-m', help='type of map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
+parser.add_argument('--ori_sel', '-os', help='',type=float, default=None)
 parser.add_argument('--seed', '-s', help='seed',type=int, default=0)
 parser.add_argument('--saverates', '-r', help='save rates or not',type=bool, default=False)
+parser.add_argument('--skip_sim', '-skip', help='skip simulations or not (useful to just get ff response only)',type=bool, default=False)
 args = vars(parser.parse_args())
 n_ori = int(args['n_ori'])
 n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
 static = args['static']
+ori_sel = args['ori_sel']
 seed = int(args['seed'])
 saverates = args['saverates']
+skip_sim = args['skip_sim']
 
 N = 60
 
@@ -47,6 +51,12 @@ if not os.path.exists(res_dir):
 
 if static:
     res_dir = res_dir + 'static_'
+    
+if ori_sel is not None:
+    ori_sel = np.clip(ori_sel, 0, 0.8).item()
+    res_dir = res_dir + f'os={ori_sel:.2f}_'
+else:
+    ori_sel = 0.12
 
 if args['map'] is None:
     res_file = res_dir + 'seed={:d}.pkl'.format(seed)
@@ -86,7 +96,7 @@ elif 'band' in args['map']:
 
 L4_inp_opm = np.fft.ifft2(opm_fft)
 L4_inp_opm *= np.abs(L4_inp_opm)**1.6/np.abs(L4_inp_opm)
-L4_inp_opm *= 0.12 / np.median(np.abs(L4_inp_opm)) # normalize median to data
+L4_inp_opm *= ori_sel / np.median(np.abs(L4_inp_opm)) # normalize median to data
 L4_inp_opm *= np.clip(np.abs(L4_inp_opm),0,0.8) / np.abs(L4_inp_opm) # clip max os to 0.8
 if 'sandp' in args['map']:
     L4_inp_opm = L4_inp_opm.flatten()
@@ -253,6 +263,8 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
 
     returns: resps, array of shape (theta.shape[0],2,N**2,n_ori=8,n_phs=8)
     '''
+    if skip_sim: return np.zeros((2,N**2,n_ori,n_phs)), np.zeros((2,N**2,n_ori,n_phs))
+    
     Jee,Jei,Jie,Jii = 10**params[:4]
     Jei *= -1
     Jii *= -1
