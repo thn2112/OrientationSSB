@@ -25,8 +25,8 @@ def runjobs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=int, default=0)
     parser.add_argument("--cluster_", help=" String", default='burg')
-    parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=16)
-    parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
+    parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, default=8)
+    parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=8)
     # parser.add_argument('--n_rpt', '-nr', help='number of repetitions per orientation',type=int, default=5)
     parser.add_argument('--gb', '-g', help='number of gbs per cpu',type=int, default=2)
     
@@ -91,13 +91,16 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['','band','band_4','band_8','band_12','band_16']
-    seeds = range(50)
+    maps = ['dev']#,'dev_sandp']#,'dev_low','dev_high','dev_sandp']#,'band',
+            #'band_4','band_4.5','band_5','band_5.5','band_6.5','band_7','band_7.5','band_8']
+    seeds = range(20)
+
+    osel = None
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
-            if map_type == '':
-                statics = [0,1]
+            if map_type == 'dev':
+                statics = [0]#,1]
             else:
                 statics = [0]
             for static in statics:
@@ -113,12 +116,15 @@ def runjobs():
                         res_dir = res_dir + 'static_'
                     if map_type != '':
                         c1 = c1 + " -m {:s}".format(map_type)
-                        res_dir = res_dir + 'map={:s}_'.format(map_type)
+                        res_dir = res_dir + '{:s}_'.format(map_type)
+                    if osel is not None:
+                        c1 = c1 + f" -os {osel:.2f}"
+                        res_dir = res_dir + f'os={osel:.2f}_'
                     if os.path.isfile(res_dir+'seed={:d}.pkl'.format(seed)):
                         continue
 
-                    jobname="{:s}_map={:s}_static={:d}_seed={:d}".format(
-                        'sim_L4_sel',map_type,static,seed)
+                    jobname="{:s}_map={:s}_static={:d}_os={:.2f}_seed={:d}".format(
+                        'sim_L4_sel',map_type,static,osel,seed)
                     
                     if not args2.test:
                         jobnameDir=os.path.join(temp_dir, jobname)
@@ -128,7 +134,7 @@ def runjobs():
                         if cluster=='haba' or cluster=='moto' or cluster=='burg':
                             text_file.write("#SBATCH --account=theory \n")
                         text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                        text_file.write("#SBATCH -t 0-2:59  \n")
+                        text_file.write("#SBATCH -t 0-3:59  \n")
                         text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
                         # text_file.write("#SBATCH --gres=gpu\n")
                         text_file.write("#SBATCH -c 1 \n")

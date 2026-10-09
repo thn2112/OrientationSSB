@@ -52,16 +52,16 @@ if not os.path.exists(res_dir):
 if static:
     res_dir = res_dir + 'static_'
     
+if args['map'] is None:
+    res_file = res_dir + 'seed={:d}.pkl'.format(seed)
+else:
+    res_file = res_dir + '{:s}_seed={:d}.pkl'.format(args['map'],seed)
+
 if ori_sel is not None:
     ori_sel = np.clip(ori_sel, 0, 0.8).item()
     res_dir = res_dir + f'os={ori_sel:.2f}_'
 else:
     ori_sel = 0.12
-
-if args['map'] is None:
-    res_file = res_dir + 'seed={:d}.pkl'.format(seed)
-else:
-    res_file = res_dir + '{:s}_seed={:d}.pkl'.format(args['map'],seed)
 
 res_dict = {}
 
