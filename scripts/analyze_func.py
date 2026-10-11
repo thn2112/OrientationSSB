@@ -1,15 +1,12 @@
 import sys
-import os
 sys.path.insert(0, './..')
 
 from functools import cache
-import pickle
-from math import floor, ceil
 import numpy as np
-from scipy.interpolate import griddata,interp1d
+from scipy.interpolate import griddata
 from scipy.integrate import quad
-from scipy.optimize import curve_fit
-from scipy.special import erf
+from scipy.optimize import curve_fit, fsolve
+from scipy.special import erf, iv
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
 from scipy.signal import argrelmin,argrelmax
@@ -458,6 +455,17 @@ def scat_map_to_grid(scat_map,xs,ys,ngrid,per_pad=None,indexing='xy',method='lin
                         scat_map_extended.flatten(),(grid_xs,grid_ys),method=method)
     
     return grid_map
+
+def get_doub_ori_func(os):
+    def os_func(a):
+        return iv(1,a) / iv(0,a) - os
+    
+    a = fsolve(os_func, 2*os)[0]
+    
+    def doub_ori_func(ori):
+        return np.exp(a*(1 - 2*np.sin(ori/2)**2)) / (2*np.pi*iv(0,a))
+    
+    return doub_ori_func
     
 def get_phase_func(mr):    
     alpha = np.interp(mr,np.load('./../notebooks/mrs.npy'),np.load('./../notebooks/alphs.npy'))
@@ -467,3 +475,14 @@ def get_phase_func(mr):
         return np.fmax(0,(1-alpha) + alpha*np.cos(phs)) / r0
     
     return phase_func
+
+def calc_mismatch(a,b):
+    a_po = np.angle(a)*180/(2*np.pi)
+    a_po[a_po > 90] -= 180
+    b_po = np.angle(b)*180/(2*np.pi)
+    b_po[b_po > 90] -= 180
+
+    mismatch = np.abs(a_po - b_po)
+    mismatch[mismatch > 90] = 180 - mismatch[mismatch > 90]
+    
+    return mismatch

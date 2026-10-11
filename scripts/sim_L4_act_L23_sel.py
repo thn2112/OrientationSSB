@@ -21,9 +21,9 @@ parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, de
 parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
 parser.add_argument('--inp_seed', '-is', help='seed for L4 model input',type=int, default=0)
 parser.add_argument('--rec_seed', '-rs', help='seed for recurrent connectivity',type=int, default=0)
-parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
-parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
+parser.add_argument('--l4_orisel', '-os', help='',type=float, default=None)
+parser.add_argument('--homog_l4_orisel', '-hos', help='make L4 have homogeneous OS',type=bool, default=False)
 parser.add_argument('--mod_rat', '-mr', help='',type=float, default=None)
 parser.add_argument('--w_arbor', '-w', help='width of L4 to L2/3 arbor in pixels',type=int, default=0)
 parser.add_argument('--map', '-m', help='whether to switch to a different L4 map',type=str, default=None)
@@ -35,9 +35,9 @@ n_phs = int(args['n_phs'])
 # n_rpt = int(args['n_rpt'])
 inp_seed = int(args['inp_seed'])
 rec_seed = int(args['rec_seed'])
-add_orisel = args['add_orisel']
-add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
+l4_orisel = args['l4_orisel']
+homog_l4_orisel = args['homog_l4_orisel']
 w_arbor = args['w_arbor']
 mod_rat = args['mod_rat']
 static = args['static']
@@ -52,6 +52,8 @@ params = np.load("./../notebooks/l23_params.npy")
 res_dir = './../results/'
 if not os.path.exists(res_dir):
     os.makedirs(res_dir)
+    
+l4_dir = res_dir + '4_sel/'
 
 res_dir = res_dir + 'L23_sel/'
 if not os.path.exists(res_dir):
@@ -61,12 +63,15 @@ if static:
     res_dir = res_dir + 'static_'
 if args['map'] is not None:
     res_dir = res_dir + args['map'] + '_'
-if add_orisel:
-    res_dir = res_dir + 'orisel_'
-if add_sandp:
-    res_dir = res_dir + 'sandp_'
+    l4_dir = l4_dir + args['map'] + '_'
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
+if l4_orisel is not None:
+    l4_orisel = np.clip(l4_orisel, 0, 0.8).item()
+    res_dir = res_dir + f'os={l4_orisel:.2f}_'
+    l4_dir = l4_dir + f'os={l4_orisel:.2f}_'
+if homog_l4_orisel:
+    res_dir = res_dir + 'homogos_'
 if mod_rat is not None:
     mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
     res_dir = res_dir + f'mr={mod_rat:.1f}_'
@@ -77,12 +82,8 @@ res_file = res_dir + 'inp_seed={:d}_rec_seed={:d}.pkl'.format(inp_seed,rec_seed)
 res_dict = {}
 
 # load L4 responses
-if args['map'] is None:
-    with open('./../results/L4_sel/seed={:d}.pkl'.format(inp_seed), 'rb') as handle:
-        L4_res_dict = pickle.load(handle)
-else:
-    with open('./../results/L4_sel/{:s}_seed={:d}.pkl'.format(args['map'],inp_seed), 'rb') as handle:
-        L4_res_dict = pickle.load(handle)
+with open(l4_dir + 'seed={:d}.pkl'.format(inp_seed), 'rb') as handle:
+    L4_res_dict = pickle.load(handle)
 
 if add_ffl4:
     L4_rates = L4_res_dict['L4_rf_rates'][0]
@@ -92,16 +93,13 @@ else:
     L4_rate_opm = L4_res_dict['L4_rate_opm'][0]
 
 L4_rates /= np.nanmean(L4_rates,axis=(-2,-1),keepdims=True)
-if add_orisel:
+if homog_l4_orisel:
+    doub_ori_func = af.get_doub_ori_func(np.abs(L4_rate_opm).mean())
     _,_,doub_po = af.calc_dc_ac_comp(L4_rates.mean(-1))
-    L4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None]))
+    L4_orisel_rates = doub_ori_func(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None])
     L4_orisel_rates *= np.nanmean(L4_rates.mean(-1),axis=(-1),keepdims=True) / np.nanmean(L4_orisel_rates,axis=(-1),keepdims=True)
     L4_norm_phase_tuning = np.fmax(1e-12,L4_rates / np.nanmean(L4_rates,axis=(-1),keepdims=True))
     L4_rates = L4_norm_phase_tuning * L4_orisel_rates[:,:,None]
-if add_sandp:
-    rng = np.random.default_rng(inp_seed)
-    L4_rates = rng.permutation(L4_rates)
-    L4_rate_opm = af.calc_OPM(L4_rates.mean(-1))
 if mod_rat is not None:
     phase_func = af.get_phase_func(mod_rat)
     _,_,phs = af.calc_dc_ac_comp(L4_rates)
@@ -279,9 +277,8 @@ def get_sheet_resps(params,N):
     
     nori = n_ori
     nphs = n_phs
-    nint = 5
-    nwrm = 6 * nint * nphs
-    dt = 1 / (nint * nphs * 3)
+    nwrm = 6 * nphs
+    dt = 1 / (nphs * 3)
     
     kern_e = np.exp(-(dss/params[4])**2)
     norm = kern_e.sum(axis=1).mean(axis=0)
@@ -294,7 +291,7 @@ def get_sheet_resps(params,N):
     thresh_e = -params[7]
     thresh_i = -params[8]
     
-    tsamp = nwrm-1 + np.arange(0,nphs) * nint
+    tsamp = nwrm-1 + np.arange(0,nphs)
     resps = np.zeros((2,N**2,nori,nphs))
     for ori_idx in range(nori):
         if static:
@@ -311,7 +308,7 @@ def get_sheet_resps(params,N):
             resps[:,:,ori_idx,:] = integrate_sheet(np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     np.zeros(N**2),np.zeros(N**2),np.zeros(N**2),
                                     ff_inp,Jee,Jei,Jie,Jii,kern_e,kern_i,params[6],N,2,2,
-                                    thresh_e,thresh_i,0,dt,nwrm+nint*nphs,tsamp)
+                                    thresh_e,thresh_i,0,dt,nwrm+nphs,tsamp)
     return resps
 
 # Integrate to get firing rates

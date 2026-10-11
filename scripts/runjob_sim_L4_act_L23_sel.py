@@ -91,10 +91,13 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['dev']#,'dev_low','dev_high','dev_sandp']#,'band',
+    maps = ['dev','dev_sandp']#,'dev_low','dev_high','dev_sandp']#,'band',
             #'band_4','band_4.5','band_5','band_5.5','band_6.5','band_7','band_7.5','band_8']
     inp_seeds = range(5)#20)
     rec_seeds = range(5)
+    
+    osel = None
+    homog_os = 0
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
@@ -105,17 +108,12 @@ def runjobs():
                 #         static_ffl4_mr_warbs.append((0,1,mr,warb))
                 for mr in [None,0.0,0.2,0.4,0.6,0.8,1.0,1.2,1.4]:
                     static_ffl4_mr_warbs.append((0,1,mr,2))
-                static_ffl4_mr_warbs.append((0,0,None,0))
-                # static_ffl4_mr_warbs.append((0,1,None,0))
-                static_ffl4_mr_warbs.append((0,0,None,2))
-                # static_ffl4_mr_warbs.append((0,1,None,0))
+                # static_ffl4_mr_warbs.append((0,1,None,2))
                 # static_ffl4_mr_warbs.append((0,0,None,2))
-                # static_ffl4_mr_warbs.append((0,0,None,0))
                 print(static_ffl4_mr_warbs)
             else:
                 static_ffl4_mr_warbs = []
                 # static_ffl4_mr_warbs.append((0,0,None,0))
-                static_ffl4_mr_warbs.append((0,1,None,0))
                 static_ffl4_mr_warbs.append((0,1,None,2))
             for (static,ffl4,mr,warb) in static_ffl4_mr_warbs:
                 for inp_seed in inp_seeds:
@@ -132,15 +130,15 @@ def runjobs():
                         if map_type != '':
                             c1 = c1 + " -m {:s}".format(map_type)
                             res_dir = res_dir + '{:s}_'.format(map_type)
-                        # if orisel == 1:
-                        #     c1 = c1 + " -aos 1"
-                        #     res_dir = res_dir + 'orisel_'
-                        # if sandp == 1:
-                        #     c1 = c1 + " -asp 1"
-                        #     res_dir = res_dir + 'sandp_'
                         if ffl4 == 1:
                             c1 = c1 + " -aff 1"
                             res_dir = res_dir + 'ffl4_'
+                        if osel is not None:
+                            c1 = c1 + f" -os {osel:.2f}"
+                            res_dir = res_dir + f'os={osel:.2f}_'
+                        if homog_os == 1:
+                            c1 = c1 + " -hos 1"
+                            res_dir = res_dir + 'homogos_'
                         if mr is not None:
                             c1 = c1 + f" -mr {mr:.1f}"
                             res_dir = res_dir + f'mr={mr:.1f}_'
