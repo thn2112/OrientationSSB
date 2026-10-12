@@ -91,16 +91,31 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['','band']#,'band_4','band_8','band_12','band_16']
-    num_inp_seeds = 20
+    maps = ['dev','dev_low','dev_high','dev_sandp']#,'band',
+            #'band_4','band_4.5','band_5','band_5.5','band_6.5','band_7','band_7.5','band_8']
+    num_inp_seeds = 5
     num_rec_seeds = 5
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
-            if map_type == '':
-                static_ffl4_mr_warbs = [(0,1,0.5,2),(0,1,0.5,4),(0,1,0.5,6)]#[(0,0,None,0),(0,1,None,0),(0,1,0.0,0)]
+            if (map_type == '') or (map_type == 'dev'):
+                static_ffl4_mr_warbs = []#[(0,1,0.5,2),(0,1,0.5,4),(0,1,0.5,6),(0,1,0.5,8),(0,1,0.5,0),(0,1,None,10),(0,1,0.5,10),(0,1,None,12),(0,1,0.5,12)]#[(0,0,None,0),(0,1,None,0),(0,1,0.0,0)]
+                # for mr in [None,0.0,0.4,0.8,1.2]:
+                #     for warb in [0,2,4,6,8]:
+                #         static_ffl4_mr_warbs.append((0,1,mr,warb))
+                for mr in [None,0.0,0.2,0.4,0.6,0.8,1.0,1.2,1.4]:
+                    static_ffl4_mr_warbs.append((0,1,mr,2))
+                static_ffl4_mr_warbs.append((0,0,None,0))
+                # static_ffl4_mr_warbs.append((0,1,None,0))
+                static_ffl4_mr_warbs.append((0,0,None,2))
+                # static_ffl4_mr_warbs.append((0,1,None,0))
+                # static_ffl4_mr_warbs.append((0,0,None,2))
+                # static_ffl4_mr_warbs.append((0,0,None,0))
+                print(static_ffl4_mr_warbs)
             else:
-                static_ffl4_mr_warbs = [(0,0,0,0)]
+                static_ffl4_mr_warbs = []
+                static_ffl4_mr_warbs.append((0,1,None,0))
+                static_ffl4_mr_warbs.append((0,1,None,2))
             for (static,ffl4,mr,warb) in static_ffl4_mr_warbs:
                 #--------------------------------------------------------------------------
                 # Make SBTACH
@@ -123,7 +138,7 @@ def runjobs():
                     c1 = c1 + f" -w {warb:d}"
 
                 jobname="{:s}_map={:s}_static={:d}_ffl4={:d}_mr={:.1f}_warb={:d}".format(
-                    'analyze_L23_sel',map_type,static,ffl4,mr,warb)
+                    'analyze_L23_sel',map_type,static,ffl4,mr if mr is not None else -1,warb)
                 
                 if not args2.test:
                     jobnameDir=os.path.join(temp_dir, jobname)
@@ -133,7 +148,7 @@ def runjobs():
                     if cluster=='haba' or cluster=='moto' or cluster=='burg':
                         text_file.write("#SBATCH --account=theory \n")
                     text_file.write("#SBATCH --job-name="+jobname+ "\n")
-                    text_file.write("#SBATCH -t 0-2:59  \n")
+                    text_file.write("#SBATCH -t 0-0:59  \n")
                     text_file.write("#SBATCH --mem-per-cpu={:d}gb \n".format(gb))
                     # text_file.write("#SBATCH --gres=gpu\n")
                     text_file.write("#SBATCH -c 1 \n")
