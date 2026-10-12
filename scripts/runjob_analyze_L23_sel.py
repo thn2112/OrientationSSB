@@ -91,10 +91,13 @@ def runjobs():
 
     time.sleep(0.2)
     
-    maps = ['dev','dev_low','dev_high','dev_sandp']#,'band',
+    maps = ['dev','dev_sandp']#,'dev_low','dev_high','dev_sandp']#,'band',
             #'band_4','band_4.5','band_5','band_5.5','band_6.5','band_7','band_7.5','band_8']
     num_inp_seeds = 5
     num_rec_seeds = 5
+    
+    osel = None
+    homog_os = 0
 
     with TemporaryDirectory() as temp_dir:
         for map_type in maps:
@@ -105,16 +108,11 @@ def runjobs():
                 #         static_ffl4_mr_warbs.append((0,1,mr,warb))
                 for mr in [None,0.0,0.2,0.4,0.6,0.8,1.0,1.2,1.4]:
                     static_ffl4_mr_warbs.append((0,1,mr,2))
-                static_ffl4_mr_warbs.append((0,0,None,0))
-                # static_ffl4_mr_warbs.append((0,1,None,0))
-                static_ffl4_mr_warbs.append((0,0,None,2))
-                # static_ffl4_mr_warbs.append((0,1,None,0))
+                # static_ffl4_mr_warbs.append((0,1,None,2))
                 # static_ffl4_mr_warbs.append((0,0,None,2))
-                # static_ffl4_mr_warbs.append((0,0,None,0))
                 print(static_ffl4_mr_warbs)
             else:
                 static_ffl4_mr_warbs = []
-                static_ffl4_mr_warbs.append((0,1,None,0))
                 static_ffl4_mr_warbs.append((0,1,None,2))
             for (static,ffl4,mr,warb) in static_ffl4_mr_warbs:
                 #--------------------------------------------------------------------------
@@ -126,19 +124,19 @@ def runjobs():
                     c1 = c1 + " -st 1"
                 if map_type != '':
                     c1 = c1 + " -m {:s}".format(map_type)
-                # if phase == 1:
-                #     c1 = c1 + " -ap 1"
-                # elif phase == -1:
-                #     c1 = c1 + " -rp 1"
                 if ffl4 == 1:
                     c1 = c1 + " -aff 1"
+                if osel is not None:
+                    c1 = c1 + f" -os {osel:.2f}"
+                if homog_os == 1:
+                    c1 = c1 + " -hos 1"
                 if mr is not None:
                     c1 = c1 + f" -mr {mr:.1f}"
                 if warb > 0:
                     c1 = c1 + f" -w {warb:d}"
 
-                jobname="{:s}_map={:s}_static={:d}_ffl4={:d}_mr={:.1f}_warb={:d}".format(
-                    'analyze_L23_sel',map_type,static,ffl4,mr if mr is not None else -1,warb)
+                jobname="{:s}_map={:s}_static={:d}_ffl4={:d}_os={:.2f}_homog={:d}_mr={:.1f}_warb={:d}".format(
+                    'analyze_L23_sel',map_type,static,ffl4,osel if osel is not None else -1,homog_os,mr if mr is not None else -1,warb)
                 
                 if not args2.test:
                     jobnameDir=os.path.join(temp_dir, jobname)

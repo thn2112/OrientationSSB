@@ -18,9 +18,9 @@ parser.add_argument('--n_ori', '-no', help='number of orientations',type=int, de
 parser.add_argument('--n_phs', '-np', help='number of orientations',type=int, default=16)
 parser.add_argument('--map', '-m', help='type of map',type=str, default=None)
 parser.add_argument('--static', '-st', help='static or dynamic input',type=bool, default=False)
-parser.add_argument('--add_orisel', '-aos', help='add orientation selectivity to L4 inputs or not',type=bool, default=False)
-parser.add_argument('--add_sandp', '-asp', help='make L4 inputs salt and pepper or not',type=bool, default=False)
 parser.add_argument('--add_ffl4', '-aff', help='make L4 a FF model or not',type=bool, default=False)
+parser.add_argument('--l4_orisel', '-os', help='',type=float, default=None)
+parser.add_argument('--homog_l4_orisel', '-hos', help='make L4 have homogeneous OS',type=bool, default=False)
 parser.add_argument('--mod_rat', '-mr', help='',type=float, default=None)
 parser.add_argument('--w_arbor', '-w', help='width of L4 to L2/3 arbor in pixels',type=int, default=0)
 parser.add_argument('--num_inp_seeds', '-inps', help='number of seeds to average over',type=int, default=0)
@@ -34,6 +34,8 @@ static = args['static']
 add_orisel = args['add_orisel']
 add_sandp = args['add_sandp']
 add_ffl4 = args['add_ffl4']
+l4_orisel = args['l4_orisel']
+homog_l4_orisel = args['homog_l4_orisel']
 w_arbor = args['w_arbor']
 mod_rat = args['mod_rat']
 num_inp_seeds = int(args['num_inp_seeds'])
@@ -60,14 +62,16 @@ if args['map'] is not None:
     res_dir = res_dir + '{:s}_'.format(args['map'])
     l4_dir = l4_dir + '{:s}_'.format(args['map'])
     
-if add_orisel:
-    res_dir = res_dir + 'orisel_'
-    
-if add_sandp:
-    res_dir = res_dir + 'sandp_'
-    
 if add_ffl4:
     res_dir = res_dir + 'ffl4_'
+    
+if l4_orisel is not None:
+    l4_orisel = np.clip(l4_orisel, 0, 0.8).item()
+    res_dir = res_dir + f'os={l4_orisel:.2f}_'
+    l4_dir = l4_dir + f'os={l4_orisel:.2f}_'
+    
+if homog_l4_orisel:
+    res_dir = res_dir + 'homogos_'
 
 if mod_rat is not None:
     mod_rat = np.clip(mod_rat, 0, np.pi/2).item()
@@ -116,18 +120,18 @@ for inp_seed_idx in range(num_inp_seeds):
     
     if add_ffl4:
         l4_rates = l4_dict['L4_rf_rates']
+        l4_rate_opm = l4_dict['L4_inp_opm'].flatten()
     else:
         l4_rates = l4_dict['L4_rates']
+        l4_rate_opm = l4_dict['L4_rate_opm'][0]
     l4_rates /= np.nanmean(l4_rates,axis=(-2,-1),keepdims=True)
-    if add_orisel:
+    if homog_l4_orisel:
+        doub_ori_func = af.get_doub_ori_func(np.abs(l4_rate_opm).mean())
         _,_,doub_po = af.calc_dc_ac_comp(l4_rates.mean(-1))
-        l4_orisel_rates = np.fmax(0,np.cos(np.linspace(0,2*np.pi,8,endpoint=False)[None,None,:]-doub_po[:,:,None]))
+        l4_orisel_rates = doub_ori_func(np.linspace(0,2*np.pi,n_ori,endpoint=False)[None,:]-doub_po[:,None])
         l4_orisel_rates *= np.nanmean(l4_rates.mean(-1),axis=(-1),keepdims=True) / np.nanmean(l4_orisel_rates,axis=(-1),keepdims=True)
         l4_norm_phase_tuning = np.fmax(1e-12,l4_rates / np.nanmean(l4_rates,axis=(-1),keepdims=True))
-        l4_rates = l4_norm_phase_tuning * l4_orisel_rates[:,:,:,None]
-    if add_sandp:
-        rng = np.random.default_rng(inp_seed_idx)
-        l4_rates[0] = rng.permutation(l4_rates[0])
+        l4_rates = l4_norm_phase_tuning * l4_orisel_rates[:,:,None]
     if mod_rat is not None:
         phase_func = af.get_phase_func(mod_rat)
         _,_,phs = af.calc_dc_ac_comp(l4_rates)
@@ -145,9 +149,9 @@ for inp_seed_idx in range(num_inp_seeds):
         l4_rates = np.fft.ifft2(l4_rates_fft * np.exp(-0.5*s2*(w_arbor/N)**2)).real
         l4_rates = l4_rates.reshape(2,8,8,N**2).transpose(0,3,1,2)
         
-    l4_rate_opm,l4_rate_MR = af.calc_OPM_MR(l4_rates)
+    l4_rate_opm,l4_rate_mr = af.calc_OPM_MR(l4_rates)
     l4_dict['L4_rate_opm'] = l4_rate_opm.reshape(2,-1)
-    l4_dict['L4_rate_mr'] = l4_rate_MR.reshape(2,-1)
+    l4_dict['L4_rate_mr'] = l4_rate_mr.reshape(2,-1)
     l4_dict['L4_rates'] = l4_rates * np.nanmean(l4_dict['L4_rates'],axis=(-2,-1),keepdims=True)
     
     inp_opm = l4_dict['L4_rate_opm'][0].reshape(N,N)
