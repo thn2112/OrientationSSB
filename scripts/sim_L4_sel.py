@@ -269,7 +269,6 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
 
     returns: resps, array of shape (theta.shape[0],2,N**2,n_ori=8,n_phs=8)
     '''
-    if skip_sim: return np.zeros((2,N**2,n_ori,n_phs)), np.zeros((2,N**2,n_ori,n_phs))
     
     Jee,Jei,Jie,Jii = 10**params[:4]
     Jei *= -1
@@ -326,7 +325,10 @@ def get_sheet_resps(params,N,gam_map,ori_map,rf_sct_map,pol_map):
 start = time.process_time()
 
 L4_ff_inps,L4_rf_rates = get_sheet_rf_resps(N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
-L4_net_inps,L4_rates = get_sheet_resps(params,N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
+if skip_sim:
+    L4_net_inps,L4_rates = L4_ff_inps,L4_rf_rates
+else:
+    L4_net_inps,L4_rates = get_sheet_resps(params,N,gam_map,np.angle(L4_inp_opm)/2,sctmap,polmap)
 
 def compute_rec_input(params,rates):
     Jee,Jei,Jie,Jii = 10**params[:4]
