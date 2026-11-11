@@ -127,15 +127,21 @@ gam_map = gam_os_itp(np.abs(L4_inp_opm))
 # compute rf scatter and ON/OFF bias maps
 sig2 = 0.00095
 
-rf_sct_scale = 0.4#0.8
-pol_scale = np.array([5,7,4])
+# Parameters fit to the 30x30 developmental simulation (spatial phase map RAPS/ACF at grating k = 4.24 on 30x30,
+# i.e. k = 8.48 on this 60x60 grid; see notebooks/tuan_dev_phase.ipynb)
+rf_sct_scale = 0.034 # white RF scatter (small, most of the scatter is polarity-gradient driven)
+pol_scale = np.array([3.65,4.261,4.139])
+sct_grad_a = 4.10 # RF displacement ~ -(a/N) grad(G_sig * s) * s/(s^2+eps^2), s = polarity field
+sct_grad_sig = 2.25
+sct_grad_eps = 0.029
 L_mm = N/11
 mag_fact = 0.02
 # L_deg = L_mm / np.sqrt(mag_fact)
 grate_freq = 0.06
-L_deg = 3 / grate_freq#5.9 / grate_freq
+L_deg = 8.48 / grate_freq # grate_freq * L_deg = grating wavevector magnitude k (cycles per grid)
 
-sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass',seed=seed)
+sctmap,polmap = mf.gen_rf_sct_map(N,sig2,rf_sct_scale,pol_scale,EI_match=True,kern_type='bandplushighpass',seed=seed,
+                                  sct_grad_a=sct_grad_a,sct_grad_sig=sct_grad_sig,sct_grad_eps=sct_grad_eps)
 
 # Compute distance matrix for connectivity kernel
 xs,ys = np.meshgrid(np.arange(N)/N,np.arange(N)/N)

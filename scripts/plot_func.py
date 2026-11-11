@@ -26,13 +26,19 @@ def add_cbar(fig,ax,plot,orientation='vertical',cax=None,**kwargs):
         cax = add_subax(ax,orientation)
     return fig.colorbar(plot, cax=cax, orientation=orientation, **kwargs)
 
-def add_subax(ax,orientation,size='5%',pad=0.05):
+def add_subax(ax,orientation,size='5%',pad=0.05,n_subax=1):
     divider = make_axes_locatable(ax)
-    if orientation=='vertical':
-        subax = divider.append_axes('right', size=size, pad=pad)
+    subaxes = []
+    if np.isscalar(pad):
+        pads = np.ones(n_subax)*pad
     else:
-        subax = divider.append_axes('bottom', size=size, pad=pad)
-    return subax
+        pads = pad
+    position = 'right' if orientation=='vertical' else 'bottom'
+    for i in range(n_subax):
+        subaxes.append(divider.append_axes(position, size=size, pad=pads[i]))
+    if n_subax == 1:
+        return subaxes[0]
+    return tuple(subaxes)
     
 def imshowticks(ax,xvals,yvals,xskip=1,yskip=1,xfmt=None,yfmt=None):
     if xfmt is None:
@@ -235,7 +241,9 @@ def get_nstar(pval):
         nstar = 0
     return nstar
 
-def add_p_star(fig,ax,x1,x2,y,nstar):
+def get_nstar_text(nstar,return_width=False):
+    if isinstance(nstar,float): nstar = get_nstar(nstar)
+    
     if nstar==0:
         text = 'ns'
         width = 0.125
@@ -248,6 +256,13 @@ def add_p_star(fig,ax,x1,x2,y,nstar):
     elif nstar==3:
         text = '∗∗∗'
         width = 0.275
+        
+    if return_width:
+        return text,width
+    return text
+
+def add_p_star(fig,ax,x1,x2,y,nstar):
+    text,width = get_nstar_text(nstar,return_width=True)
         
     if x2 is not None:
         ax.add_line(lines.Line2D([x1,x2],[y,y],lw=1,color='k',clip_on=False))

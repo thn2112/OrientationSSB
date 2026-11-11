@@ -2,6 +2,7 @@ import numpy as np
 from scipy.stats import qmc
 from scipy.interpolate import PchipInterpolator
 from scipy.stats import norm,gamma
+from scipy.ndimage import gaussian_filter
 
 def gen_corr_inps(N,rng,T=3,dt=0.05/(3*8),t_corr=0.02,noise_cv=5,decay_freq=8,return_itp=True):
     npatt = int(np.round(T/dt)) + 1
@@ -31,7 +32,22 @@ def gen_corr_inps(N,rng,T=3,dt=0.05/(3*8),t_corr=0.02,noise_cv=5,decay_freq=8,re
         return PchipInterpolator(np.arange(npatt) * dt,gam_dist.ppf(norm.cdf(patts)))
     return gam_dist.ppf(norm.cdf(patts))
 
-def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,kern_type='bandpass',seed=0):
+def polarity_grad_disp(field,N,grad_a,grad_sig=2.0,grad_eps=0.3):
+    """RF displacement (in grid-fraction units, shape (N,N,2) ordered [x,y]) that depends on the gradient
+    of the (continuous) ON/OFF polarity field s:
+        d = -(grad_a/N) * grad(G_sig * s) * s / (s^2 + eps^2)
+    with s normalised to unit std. For |s| >> eps this is -(a/N) grad(s_sig)/s, i.e. the first-order shift of
+    the signed RF centre of mass implied by a measured relation (sum_y RF(y)(y-x)) ~ -a grad(s_sig).
+    grad_a is in px^2 (pixel = 1/N of the grid), grad_sig and grad_eps in px / units of std(s)."""
+    s = field/np.std(field)
+    ss = gaussian_filter(s,grad_sig,mode='wrap')
+    gx = 0.5*(np.roll(ss,-1,axis=1) - np.roll(ss,1,axis=1))   # x is axis 1 (matches meshgrid in gen_abs_phs_map)
+    gy = 0.5*(np.roll(ss,-1,axis=0) - np.roll(ss,1,axis=0))
+    w = s/(s**2 + grad_eps**2)
+    return -(grad_a/N)*np.stack((gx*w,gy*w),axis=-1)
+
+def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,kern_type='bandpass',seed=0,
+                   sct_grad_a=0.0,sct_grad_sig=2.0,sct_grad_eps=0.3):
     rng = np.random.default_rng(seed)
 
     ks = np.arange(N)/N
@@ -55,10 +71,13 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,ker
     if EI_match:
         # polmap = (np.fft.ifft2(k_kern*\
         #     np.fft.fft2(rng.binomial(n=1,p=0.5,size=(N,N))-0.5)) > 0).astype(int)
-        polmap = (np.fft.ifft2(k_kern*\
-            np.fft.fft2(rng.normal(size=(N,N)))) > 0).astype(int)
+        polfield = np.fft.ifft2(k_kern*\
+            np.fft.fft2(rng.normal(size=(N,N))))
+        polmap = (polfield > 0).astype(int)
     
         sctmap = rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2))
+        if sct_grad_a != 0:
+            sctmap = sctmap + polarity_grad_disp(polfield.real,N,sct_grad_a,sct_grad_sig,sct_grad_eps)
     else:
         # e_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
         # i_field = rng.binomial(n=1,p=0.5,size=(N,N))-0.5
@@ -75,6 +94,10 @@ def gen_rf_sct_map(N,sig2,sct_scale,pol_scale,EI_match=True,EI_pol_corr=0.65,ker
         
         sctmap = (rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2)),
                   rng.normal(loc=0,scale=np.sqrt(sig2)*sct_scale,size=(N,N,2)))
+        if sct_grad_a != 0:
+            # RF displacement follows the gradient of the continuous polarity field of its own cell type
+            sctmap = (sctmap[0] + polarity_grad_disp(polmap_e,N,sct_grad_a,sct_grad_sig,sct_grad_eps),
+                      sctmap[1] + polarity_grad_disp(polmap_i,N,sct_grad_a,sct_grad_sig,sct_grad_eps))
     
     return sctmap,polmap
 
